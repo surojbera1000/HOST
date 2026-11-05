@@ -22,7 +22,7 @@ class BotStatus(str, Enum):
 
 
 class EnvVar(BaseModel):
-    """একটা environment variable — sensitive হলে value encrypted থাকে।"""
+    """A single environment variable — the value is encrypted when sensitive."""
     key: str
     value_encrypted: str
     is_sensitive: bool = True

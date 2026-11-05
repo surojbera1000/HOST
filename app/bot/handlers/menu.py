@@ -1,4 +1,4 @@
-"""Main menu-র inline button callback handler।"""
+"""Callback handlers for the main menu inline buttons."""
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
@@ -27,7 +27,7 @@ async def my_bots(cb: CallbackQuery) -> None:
     if not bots:
         await cb.message.edit_text(texts.MY_BOTS_EMPTY, reply_markup=back_kb())
     else:
-        lines = ["📂 <b>আপনার Hosted Bots</b>\n"]
+        lines = [texts.MY_BOTS_HEADER]
         for b in bots:
             icon = "🟢" if b.status == BotStatus.RUNNING else "⏹"
             lines.append(f"{icon} <b>{b.name}</b> — {b.status.value}")

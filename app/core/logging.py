@@ -4,7 +4,7 @@ import re
 
 import structlog
 
-# এই pattern-গুলো log থেকে মুছে ফেলা হবে (secret leak ঠেকাতে)
+# These patterns are redacted from logs (to prevent secret leaks)
 _SENSITIVE_KEYS = re.compile(
     r"(token|secret|api_hash|password|fernet|bot_token|api_key)", re.IGNORECASE
 )

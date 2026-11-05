@@ -1,4 +1,4 @@
-"""সব handler router এক জায়গায় রেজিস্টার করা হয়।"""
+"""Register all handler routers in one place."""
 from aiogram import Dispatcher
 
 from app.bot.handlers import admin, menu, start

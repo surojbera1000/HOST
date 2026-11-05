@@ -1,4 +1,4 @@
-"""/admin — শুধু OWNER_ID-এর জন্য basic admin panel।"""
+"""/admin — basic admin panel for OWNER_ID only."""
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message

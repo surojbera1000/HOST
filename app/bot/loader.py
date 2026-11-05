@@ -1,4 +1,4 @@
-"""Bot + Dispatcher singletons. FSM state Redis-এ রাখা হয়।"""
+"""Bot + Dispatcher singletons. FSM state is stored in Redis."""
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode

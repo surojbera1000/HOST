@@ -1,4 +1,4 @@
-"""Inline keyboards — রঙিন emoji সহ main menu ও navigation।"""
+"""Inline keyboards — colourful emoji main menu and navigation."""
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -12,7 +12,7 @@ def main_menu_kb() -> InlineKeyboardMarkup:
     kb.button(text="📖 Documentation", callback_data="menu:docs")
     kb.button(text="💎 Plans & Pricing", callback_data="menu:plans")
     kb.button(text="🆘 Support", callback_data="menu:support")
-    # layout: 2,2,2,1
+    # layout: rows of 2, 2, 2, 1
     kb.adjust(2, 2, 2, 1)
     return kb.as_markup()
 

@@ -1,6 +1,6 @@
-"""Application entry point — bot চালু করে।
+"""Application entry point — starts the bot.
 
-চালানো: python -m app.main
+Run: python -m app.main
 """
 import asyncio
 
@@ -19,10 +19,10 @@ async def main() -> None:
     # 1) Database
     await init_db()
 
-    # 2) Handlers রেজিস্টার
+    # 2) Register handlers
     register_handlers(dp)
 
-    # 3) Polling শুরু
+    # 3) Start polling
     log.info("bot_polling_started")
     try:
         await bot.delete_webhook(drop_pending_updates=True)

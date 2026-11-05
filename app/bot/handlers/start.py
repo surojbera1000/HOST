@@ -1,4 +1,4 @@
-"""/start — ইউজার রেজিস্টার + main menu দেখানো।"""
+"""/start — register the user and show the main menu."""
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
@@ -11,7 +11,7 @@ router = Router(name="start")
 
 
 async def ensure_user(message: Message) -> User:
-    """ইউজার না থাকলে database-এ তৈরি করা হয়।"""
+    """Create the user in the database if they don't exist yet."""
     tg = message.from_user
     user = await User.find_one(User.telegram_id == tg.id)
     if user is None:

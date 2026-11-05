@@ -1,7 +1,7 @@
 """Symmetric encryption for sensitive environment variables.
 
-ইউজারের BOT_TOKEN / API_HASH ইত্যাদি database-এ কখনো plaintext-এ রাখা হয় না।
-সব encrypt করে রাখা হয়, শুধু deploy করার সময় decrypt করা হয়।
+Values like BOT_TOKEN / API_HASH are never stored as plaintext in the database.
+Everything is encrypted at rest and only decrypted at deploy time.
 """
 from cryptography.fernet import Fernet
 
@@ -13,10 +13,10 @@ def _cipher() -> Fernet:
 
 
 def encrypt(value: str) -> str:
-    """Plaintext string -> encrypted token (database-এ এটাই রাখা হয়)।"""
+    """Plaintext string -> encrypted token (this is what gets stored)."""
     return _cipher().encrypt(value.encode()).decode()
 
 
 def decrypt(token: str) -> str:
-    """Encrypted token -> plaintext (শুধু deploy-এর সময়)।"""
+    """Encrypted token -> plaintext (only at deploy time)."""
     return _cipher().decrypt(token.encode()).decode()
