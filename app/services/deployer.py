@@ -45,15 +45,32 @@ def container_name(bot_id: str) -> str:
 
 
 def _build_script(repo_url: str, branch: str, startup_cmd: str) -> str:
-    """Shell script the container runs: clone -> install -> start."""
+    """Shell script the container runs: clone -> install -> start.
+
+    For private repos a token is read from the _BN_TOKEN env var (injected only
+    into this container). The token is used to build an auth clone URL, then:
+      - the .git directory is deleted (removes the stored credential), and
+      - _BN_TOKEN is unset before the bot starts,
+    so the untrusted bot code never sees the token in its environment, command
+    line, or git config.
+    """
     repo = shlex.quote(repo_url)
     br = shlex.quote(branch or "main")
     start = startup_cmd or "python main.py"
     return (
         "set -e\n"
-        f"echo '==> Cloning repository...'\n"
-        f"git clone --depth 1 --branch {br} {repo} /app || git clone --depth 1 {repo} /app\n"
+        f"REPO={repo}\n"
+        f"BR={br}\n"
+        'if [ -n "$_BN_TOKEN" ]; then\n'
+        '  CLONE="https://x-access-token:${_BN_TOKEN}@${REPO#https://}"\n'
+        "else\n"
+        '  CLONE="$REPO"\n'
+        "fi\n"
+        "echo '==> Cloning repository...'\n"
+        'git clone --depth 1 --branch "$BR" "$CLONE" /app || git clone --depth 1 "$CLONE" /app\n'
         "cd /app\n"
+        "rm -rf .git\n"              # drop stored credentials + git metadata
+        "unset _BN_TOKEN\n"           # token must not reach the bot process
         "if [ -f requirements.txt ]; then\n"
         "  echo '==> Installing requirements.txt...'\n"
         "  pip install --no-cache-dir -r requirements.txt\n"
@@ -72,11 +89,18 @@ def _deploy_sync(
     branch: str,
     startup_cmd: str,
     env: dict[str, str],
+    token: str | None = None,
 ) -> DeployResult:
     try:
         client = docker.from_env()
     except DockerException as exc:
         return DeployResult(False, "error", error=f"Docker is not available: {exc}")
+
+    # Inject the GitHub token only for the clone step; the script unsets it
+    # before the bot runs so the untrusted code never sees it.
+    run_env = dict(env)
+    if token:
+        run_env["_BN_TOKEN"] = token
 
     name = container_name(bot_id)
 
@@ -107,7 +131,7 @@ def _deploy_sync(
             command=["sh", "-c", script],
             name=name,
             detach=True,
-            environment=env,
+            environment=run_env,
             mem_limit=MEM_LIMIT,
             nano_cpus=NANO_CPUS,
             pids_limit=PIDS_LIMIT,
@@ -150,10 +174,13 @@ async def deploy_bot(
     env_encrypted: dict[str, str],
 ) -> DeployResult:
     """Decrypt env vars and run the (blocking) deployment in a worker thread."""
+    from app.config import get_settings
+
     env = {k: decrypt(v) for k, v in env_encrypted.items()}
-    log.info("deploy_start", bot=bot_id, repo=repo_url, env_count=len(env))
+    token = get_settings().github_token or None
+    log.info("deploy_start", bot=bot_id, repo=repo_url, env_count=len(env), private=bool(token))
     result = await asyncio.to_thread(
-        _deploy_sync, bot_id, repo_url, branch, startup_cmd, env
+        _deploy_sync, bot_id, repo_url, branch, startup_cmd, env, token
     )
     log.info("deploy_done", bot=bot_id, status=result.status)
     return result

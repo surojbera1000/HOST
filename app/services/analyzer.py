@@ -160,6 +160,10 @@ async def analyze_repo(url: str, token: str | None = None) -> AnalysisResult:
         raise GitHubError("That doesn't look like a valid GitHub URL.")
     owner, repo = parsed
 
+    if token is None:
+        from app.config import get_settings
+        token = get_settings().github_token or None
+
     gh = GitHubClient(token=token)
     meta = await gh.get_repo(owner, repo)
     branch = meta.get("default_branch", "main")

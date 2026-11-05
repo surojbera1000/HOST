@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-20250514"
 
+    # GitHub access
+    # Optional Personal Access Token — enables private repos + higher rate limits.
+    github_token: str = ""
+
     # GitHub OAuth (Phase 6)
     github_client_id: str = ""
     github_client_secret: str = ""

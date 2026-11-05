@@ -51,7 +51,15 @@ class GitHubClient:
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             r = await client.get(url, headers=self._headers)
         if r.status_code == 404:
-            raise GitHubError("Repository not found. Check the URL and that it is public.")
+            if self.authenticated:
+                raise GitHubError(
+                    "Repository not found. Check the URL, and make sure your GitHub "
+                    "token has access to it."
+                )
+            raise GitHubError(
+                "Repository not found. If it's private, a GitHub token needs to be "
+                "configured. Otherwise check the URL."
+            )
         if r.status_code == 403 and "rate limit" in r.text.lower():
             raise GitHubError("GitHub rate limit reached. Please try again in a while.")
         if r.status_code != 200:
@@ -68,12 +76,26 @@ class GitHubClient:
         data = r.json()
         return [item["path"] for item in data.get("tree", []) if item.get("type") == "blob"]
 
+    @property
+    def authenticated(self) -> bool:
+        return "Authorization" in self._headers
+
     async def get_file(self, owner: str, repo: str, branch: str, path: str) -> str | None:
-        """Fetch a single file's text from raw.githubusercontent.com."""
-        url = f"{RAW_BASE}/{owner}/{repo}/{branch}/{path}"
+        """Fetch a single file's text.
+
+        With a token we use the authenticated Contents API (works for private
+        repos). Without one we use raw.githubusercontent.com (public only, and
+        it doesn't count against the API rate limit).
+        """
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
-                r = await client.get(url)
+                if self.authenticated:
+                    url = f"{GITHUB_API}/repos/{owner}/{repo}/contents/{path}?ref={branch}"
+                    headers = {**self._headers, "Accept": "application/vnd.github.raw+json"}
+                    r = await client.get(url, headers=headers)
+                else:
+                    url = f"{RAW_BASE}/{owner}/{repo}/{branch}/{path}"
+                    r = await client.get(url)
         except httpx.HTTPError:
             return None
         if r.status_code == 200:

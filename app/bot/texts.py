@@ -27,7 +27,7 @@ ASK_REPO = (
     "<code>https://github.com/username/my-bot</code>\n\n"
     "💡 <i>New to this? It's the web address of your project page on GitHub. "
     "Just copy and paste it here.</i>\n\n"
-    "<i>Only public repositories are supported for now.</i>"
+    "<i>Both public and private repositories are supported.</i>"
 )
 
 ANALYZING = (
