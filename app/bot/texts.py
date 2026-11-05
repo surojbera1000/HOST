@@ -35,6 +35,24 @@ ANALYZING = (
     "I'm reading your code to figure out what it needs. One moment. ⏳"
 )
 
+ASK_TOKEN = (
+    "🔒 <b>This looks like a private repository</b>\n\n"
+    "To open it, I need a <b>GitHub token</b> that can read your repos.\n\n"
+    "<b>How to create one (about 20 seconds):</b>\n"
+    "1️⃣ Open <b>github.com/settings/tokens/new</b>\n"
+    "2️⃣ Tick the <b>repo</b> checkbox\n"
+    "3️⃣ Tap <b>Generate token</b> and copy it (starts with <code>ghp_</code>)\n"
+    "4️⃣ Paste it here\n\n"
+    "🔐 Your token is encrypted and your message is deleted instantly. "
+    "It's only ever used to access <i>your</i> repositories."
+)
+
+TOKEN_BAD = (
+    "🤔 That doesn't look like a GitHub token.\n\n"
+    "It should start with <code>ghp_</code> or <code>github_pat_</code>. "
+    "Please paste it again."
+)
+
 INVALID_URL = (
     "🤔 <b>That doesn't look like a GitHub link.</b>\n\n"
     "Please send something like:\n"

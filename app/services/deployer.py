@@ -172,12 +172,18 @@ async def deploy_bot(
     branch: str,
     startup_cmd: str,
     env_encrypted: dict[str, str],
+    token: str | None = None,
 ) -> DeployResult:
-    """Decrypt env vars and run the (blocking) deployment in a worker thread."""
+    """Decrypt env vars and run the (blocking) deployment in a worker thread.
+
+    ``token`` is the repo owner's GitHub token (for private repos). It's used
+    only for cloning and is scrubbed before the bot process starts.
+    """
     from app.config import get_settings
 
     env = {k: decrypt(v) for k, v in env_encrypted.items()}
-    token = get_settings().github_token or None
+    if token is None:
+        token = get_settings().github_token or None
     log.info("deploy_start", bot=bot_id, repo=repo_url, env_count=len(env), private=bool(token))
     result = await asyncio.to_thread(
         _deploy_sync, bot_id, repo_url, branch, startup_cmd, env, token

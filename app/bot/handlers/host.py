@@ -20,9 +20,10 @@ from app.bot.keyboards.host import (
 from app.bot.keyboards.main_menu import main_menu_kb
 from app.bot.states import HostBot
 from app.bot import texts
+from app.config import get_settings
 from app.core.logging import get_logger
-from app.core.security import encrypt
-from app.db.models import BotStatus, Deployment, EnvVar, HostedBot
+from app.core.security import decrypt, encrypt
+from app.db.models import BotStatus, Deployment, EnvVar, HostedBot, User
 from app.services.analyzer import analyze_repo
 from app.services.deployer import deploy_bot
 from app.services.github import GitHubError, parse_repo_url
@@ -41,6 +42,91 @@ _SENSITIVE_HINTS = (
 def is_sensitive(key: str) -> bool:
     k = key.upper()
     return any(h in k for h in _SENSITIVE_HINTS)
+
+
+# ----------------------------------------------------------------------------
+# Per-user GitHub token helpers
+# ----------------------------------------------------------------------------
+async def _user_token(telegram_id: int) -> str | None:
+    """Return this user's saved GitHub token (decrypted), or None."""
+    user = await User.find_one(User.telegram_id == telegram_id)
+    if user and user.github_token_encrypted:
+        try:
+            return decrypt(user.github_token_encrypted)
+        except Exception:  # noqa: BLE001
+            return None
+    return None
+
+
+async def _save_user_token(telegram_id: int, token: str) -> None:
+    user = await User.find_one(User.telegram_id == telegram_id)
+    if user is None:
+        user = User(telegram_id=telegram_id)
+        await user.insert()
+    user.github_token_encrypted = encrypt(token)
+    await user.save()
+
+
+async def _resolve_token(telegram_id: int) -> str | None:
+    """User's own token first; fall back to a platform-wide token if set."""
+    return await _user_token(telegram_id) or (get_settings().github_token or None)
+
+
+def _looks_like_token(text: str) -> bool:
+    t = text.strip()
+    return t.startswith(("ghp_", "github_pat_", "gho_", "ghs_")) and len(t) >= 20
+
+
+async def _store_analysis(status: Message, result, url: str, state: FSMContext) -> None:
+    """Save the analysis in FSM and show the deployment report."""
+    await state.set_state(None)
+    await state.update_data(
+        repo_url=url,
+        bot_name=result.repo,
+        owner=result.owner,
+        repo=result.repo,
+        branch=result.branch or "main",
+        language=result.language,
+        framework=result.framework,
+        entrypoint=result.entrypoint,
+        startup_cmd=result.startup_cmd,
+        env_keys=result.env_vars,
+        env_values={},
+        env_skipped=[],
+        env_index=0,
+        prompt_chat=status.chat.id,
+        prompt_msg=status.message_id,
+    )
+    log.info("analysis_done", repo=result.repo_full, env_count=len(result.env_vars))
+    await status.edit_text(result.to_report(), reply_markup=report_kb())
+
+
+async def _analyze_and_report(
+    status: Message,
+    url: str,
+    token: str | None,
+    state: FSMContext,
+    ask_token_if_private: bool,
+) -> None:
+    """Run analysis; on a private/404 repo (and no token yet) ask for a token."""
+    try:
+        result = await analyze_repo(url, token=token)
+    except GitHubError as exc:
+        if getattr(exc, "code", None) == 404 and ask_token_if_private:
+            await state.set_state(HostBot.waiting_for_token)
+            await state.update_data(pending_repo=url)
+            await status.edit_text(texts.ASK_TOKEN, reply_markup=cancel_kb())
+            return
+        await status.edit_text(f"❌ {exc}", reply_markup=cancel_kb())
+        return
+    except Exception:  # noqa: BLE001
+        log.exception("analysis_failed", repo=url)
+        await status.edit_text(
+            "❌ Something went wrong while analyzing the repo. Please try again.",
+            reply_markup=cancel_kb(),
+        )
+        return
+    await _store_analysis(status, result, url, state)
 
 
 # ----------------------------------------------------------------------------
@@ -72,42 +158,39 @@ async def receive_repo(message: Message, state: FSMContext) -> None:
         await message.answer(texts.INVALID_URL, reply_markup=cancel_kb())
         return
 
+    user_tok = await _user_token(message.from_user.id)
+    token = user_tok or (get_settings().github_token or None)
     status = await message.answer(texts.ANALYZING)
+    # If the user has no personal token, a 404 might mean "private" — ask for one.
+    await _analyze_and_report(status, url, token, state, ask_token_if_private=user_tok is None)
+
+
+@router.message(HostBot.waiting_for_token, F.text)
+async def receive_token(message: Message, state: FSMContext) -> None:
+    token = message.text.strip()
+
+    # The token is a secret — delete the message right away.
     try:
-        result = await analyze_repo(url)
-    except GitHubError as exc:
-        await status.edit_text(f"❌ {exc}", reply_markup=cancel_kb())
-        return
+        await message.delete()
     except Exception:  # noqa: BLE001
-        log.exception("analysis_failed", repo=url)
-        await status.edit_text(
-            "❌ Something went wrong while analyzing the repo. Please try again.",
-            reply_markup=cancel_kb(),
-        )
+        pass
+
+    if not _looks_like_token(token):
+        await message.answer(texts.TOKEN_BAD, reply_markup=cancel_kb())
         return
 
-    # Persist the analysis in FSM data for the configuration step.
+    await _save_user_token(message.from_user.id, token)
+
+    data = await state.get_data()
+    url = data.get("pending_repo")
+    if not url:
+        await message.answer(texts.INVALID_URL, reply_markup=cancel_kb())
+        return
+
+    status = await message.answer(texts.ANALYZING)
     await state.set_state(None)
-    await state.update_data(
-        repo_url=url,
-        bot_name=result.repo,
-        owner=result.owner,
-        repo=result.repo,
-        branch=result.branch or "main",
-        language=result.language,
-        framework=result.framework,
-        entrypoint=result.entrypoint,
-        startup_cmd=result.startup_cmd,
-        env_keys=result.env_vars,
-        env_values={},     # key -> encrypted value
-        env_skipped=[],     # keys the user chose to skip
-        env_index=0,
-        # the message we keep editing throughout the flow
-        prompt_chat=status.chat.id,
-        prompt_msg=status.message_id,
-    )
-    log.info("analysis_done", repo=result.repo_full, env_count=len(result.env_vars))
-    await status.edit_text(result.to_report(), reply_markup=report_kb())
+    # We already have the user's token now, so don't ask again on failure.
+    await _analyze_and_report(status, url, token, state, ask_token_if_private=False)
 
 
 # ----------------------------------------------------------------------------
@@ -311,6 +394,8 @@ async def deploy(cb: CallbackQuery, state: FSMContext) -> None:
     await bot.insert()
     log.info("bot_saved", owner=cb.from_user.id, repo=data.get("repo_url"), vars=len(env_vars))
 
+    token = await _resolve_token(cb.from_user.id)
+
     await state.clear()
     await cb.answer("Deploying…")
     await cb.message.edit_text(texts.DEPLOYING)
@@ -325,6 +410,7 @@ async def deploy(cb: CallbackQuery, state: FSMContext) -> None:
         branch=bot.branch,
         startup_cmd=bot.startup_cmd or "python main.py",
         env_encrypted=env_encrypted,
+        token=token,
     )
 
     # Persist the outcome.

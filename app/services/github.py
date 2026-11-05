@@ -21,6 +21,10 @@ _URL_RE = re.compile(
 class GitHubError(Exception):
     """Raised for any user-facing GitHub problem (bad URL, 404, rate limit)."""
 
+    def __init__(self, message: str, code: int | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+
 
 def parse_repo_url(url: str) -> tuple[str, str] | None:
     """Extract (owner, repo) from many GitHub URL forms, or ``owner/repo``."""
@@ -54,16 +58,18 @@ class GitHubClient:
             if self.authenticated:
                 raise GitHubError(
                     "Repository not found. Check the URL, and make sure your GitHub "
-                    "token has access to it."
+                    "token has access to it.",
+                    code=404,
                 )
-            raise GitHubError(
-                "Repository not found. If it's private, a GitHub token needs to be "
-                "configured. Otherwise check the URL."
-            )
+            raise GitHubError("Repository not found or private.", code=404)
         if r.status_code == 403 and "rate limit" in r.text.lower():
-            raise GitHubError("GitHub rate limit reached. Please try again in a while.")
+            raise GitHubError(
+                "GitHub rate limit reached. Please try again in a while.", code=403
+            )
         if r.status_code != 200:
-            raise GitHubError(f"GitHub returned an error (HTTP {r.status_code}).")
+            raise GitHubError(
+                f"GitHub returned an error (HTTP {r.status_code}).", code=r.status_code
+            )
         return r.json()
 
     async def get_tree(self, owner: str, repo: str, branch: str) -> list[str]:
