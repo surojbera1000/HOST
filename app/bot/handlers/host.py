@@ -134,14 +134,14 @@ def _summary_text(data: dict) -> str:
     values = data["env_values"]
     skipped = set(data["env_skipped"])
     lines = [
-        "📝 <b>Deployment Summary</b>\n",
+        "📝 <b>Ready to go live!</b>\n",
         f"🤖 <b>Bot:</b> {data['bot_name']}",
-        f"📦 <b>Repo:</b> <code>{data['owner']}/{data['repo']}</code>",
-        f"▶️ <b>Startup:</b> <code>{data.get('startup_cmd') or 'auto'}</code>\n",
-        "🔑 <b>Environment Variables:</b>",
+        f"📦 <b>Source:</b> <code>{data['owner']}/{data['repo']}</code>",
+        f"▶️ <b>Start command:</b> <code>{data.get('startup_cmd') or 'auto'}</code>\n",
+        "🔑 <b>Your settings:</b>",
     ]
     if not keys:
-        lines.append("<i>None required.</i>")
+        lines.append("<i>None needed.</i>")
     for key in keys:
         if key in values:
             mark = "🔒 set" if is_sensitive(key) else "✅ set"
@@ -150,7 +150,7 @@ def _summary_text(data: dict) -> str:
         else:
             mark = "⬜ not set"
         lines.append(f"  • <code>{key}</code> — {mark}")
-    lines.append("\nReview above, then <b>Confirm &amp; Deploy</b>.")
+    lines.append("\nLooks right? Tap <b>🚀 Confirm &amp; Deploy</b> to launch your bot.")
     return "\n".join(lines)
 
 

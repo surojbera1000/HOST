@@ -21,7 +21,7 @@ def main_menu_kb() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="📂 My Hosted Bots",
+                    text="📂 My Bots",
                     callback_data="menu:mybots",
                     style="primary",
                 ),
@@ -33,19 +33,19 @@ def main_menu_kb() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="🔗 GitHub Auth",
-                    callback_data="menu:github",
+                    text="📖 How It Works",
+                    callback_data="menu:docs",
                     style="primary",
                 ),
                 InlineKeyboardButton(
-                    text="📖 Documentation",
-                    callback_data="menu:docs",
+                    text="🔗 Connect GitHub",
+                    callback_data="menu:github",
                     style="primary",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="🆘 Support",
+                    text="🆘 Help & Support",
                     callback_data="menu:support",
                     style="danger",
                 ),

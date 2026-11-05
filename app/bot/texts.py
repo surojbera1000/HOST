@@ -1,107 +1,147 @@
-"""All bot message texts (English)."""
+"""All bot message texts — professional, friendly, beginner-focused (English)."""
+from app.branding import BRAND_NAME, BRAND_TAGLINE, BRAND_TITLE
 
+# ---------------------------------------------------------------------------
+# Main menu
+# ---------------------------------------------------------------------------
 WELCOME = (
-    "🚀 <b>Welcome to the AI Bot Hosting Platform!</b>\n\n"
-    "Host your own Telegram bots <b>without a VPS</b>.\n"
-    "Just drop a GitHub repo → set your env variables → press <b>Deploy</b>. ✨\n\n"
-    "Pick an option from the menu below 👇"
+    f"{BRAND_TITLE}\n"
+    f"<i>{BRAND_TAGLINE}</i>\n\n"
+    "Welcome! 👋 Getting your Telegram bot online used to mean renting a server, "
+    "opening a terminal, and typing commands. Not here.\n\n"
+    "<b>Here's all you do:</b>\n"
+    "1️⃣ Share your bot's GitHub link\n"
+    "2️⃣ Answer a few quick questions\n"
+    "3️⃣ Tap <b>Deploy</b> — your bot goes live 🎉\n\n"
+    "No VPS. No setup. We handle the rest.\n\n"
+    "👇 <b>Pick an option to begin</b>"
 )
 
+# ---------------------------------------------------------------------------
+# Host a New Bot — repo step
+# ---------------------------------------------------------------------------
 ASK_REPO = (
-    "🚀 <b>Host a New Bot</b>\n\n"
-    "Send me your <b>GitHub repository URL</b> and I'll analyze it automatically.\n\n"
-    "Example:\n"
-    "<code>https://github.com/username/my-telegram-bot</code>\n\n"
+    "🚀 <b>Let's host your bot</b>\n\n"
+    "First, send me the <b>GitHub link</b> of your bot's code.\n\n"
+    "It looks like this:\n"
+    "<code>https://github.com/username/my-bot</code>\n\n"
+    "💡 <i>New to this? It's the web address of your project page on GitHub. "
+    "Just copy and paste it here.</i>\n\n"
     "<i>Only public repositories are supported for now.</i>"
 )
 
-ANALYZING = "🔍 <b>Analyzing repository…</b>\nThis may take a few seconds."
-
-INVALID_URL = (
-    "❌ That doesn't look like a valid GitHub URL.\n\n"
-    "Please send something like:\n"
-    "<code>https://github.com/username/repo</code>"
+ANALYZING = (
+    "🔍 <b>Checking your repository…</b>\n\n"
+    "I'm reading your code to figure out what it needs. One moment. ⏳"
 )
 
+INVALID_URL = (
+    "🤔 <b>That doesn't look like a GitHub link.</b>\n\n"
+    "Please send something like:\n"
+    "<code>https://github.com/username/my-bot</code>\n\n"
+    "Copy it from your project's page on github.com."
+)
+
+# ---------------------------------------------------------------------------
+# Configuration — env variables
+# ---------------------------------------------------------------------------
 CONFIG_INTRO = (
-    "⚙️ <b>Environment Configuration</b>\n\n"
-    "I'll ask for each required variable one by one.\n"
-    "Just send the value as a message. Use <b>Skip</b> for optional ones.\n\n"
-    "🔒 Sensitive values are encrypted and your message is deleted immediately."
+    "⚙️ <b>Almost there — let's set things up</b>\n\n"
+    "Your bot needs a few settings to run. I'll ask for them one at a time — "
+    "just type each value and send it.\n\n"
+    "🔒 Secret values are encrypted, and your message is deleted the moment you send it.\n"
+    "⏭ Not sure about one? Tap <b>Skip</b>."
 )
 
 ASK_ENV = (
-    "🔑 <b>Variable {index}/{total}</b>\n\n"
+    "🔑 <b>Setting {index} of {total}</b>\n\n"
     "Please send the value for:\n"
-    "<code>{key}</code>{hint}"
+    "<code>{key}</code>{hint}\n\n"
+    "<i>Type it below and send. 🔒 = kept secret &amp; encrypted.</i>"
 )
-
-ENV_SAVED_SENSITIVE = "🔒 <code>{key}</code> saved (encrypted). Your message was deleted."
-ENV_SAVED_PLAIN = "✅ <code>{key}</code> saved."
-ENV_SKIPPED = "⏭ <code>{key}</code> skipped."
 
 NO_ENV_DETECTED = (
-    "⚙️ <b>Environment Configuration</b>\n\n"
-    "No environment variables were detected for this repo, so there's nothing to set.\n"
-    "You can deploy directly."
+    "⚙️ <b>Nothing to configure</b>\n\n"
+    "Good news — your bot doesn't need any extra settings.\n"
+    "You're ready to go live! 🚀"
 )
 
-EDIT_INTRO = "✏️ <b>Edit a Variable</b>\n\nPick the variable you want to change:"
+EDIT_INTRO = (
+    "✏️ <b>Change a setting</b>\n\n"
+    "Tap the one you'd like to update:"
+)
 
 EDIT_ASK = "✏️ Send the new value for <code>{key}</code>:"
 
 DEPLOY_SAVED = (
-    "✅ <b>Configuration Saved!</b>\n\n"
+    "✅ <b>All set — your bot is queued!</b>\n\n"
     "🤖 <b>Bot:</b> {name}\n"
-    "📦 <b>Repo:</b> <code>{repo}</code>\n"
-    "🔑 <b>Variables set:</b> {count}\n"
+    "📦 <b>Source:</b> <code>{repo}</code>\n"
+    "🔑 <b>Settings saved:</b> {count}\n"
     "📊 <b>Status:</b> Pending\n\n"
-    "Your bot is queued. The actual deployment engine (containers, build, run) "
-    "arrives in <i>Phase 4</i> — everything is saved and ready for it."
+    "Everything is saved securely. The live deployment (where your bot actually "
+    "starts running) is coming in the next update — your bot is ready and waiting for it. 🚀"
 )
 
+# ---------------------------------------------------------------------------
+# My Bots / Stats
+# ---------------------------------------------------------------------------
 MY_BOTS_EMPTY = (
-    "📂 <b>My Hosted Bots</b>\n\n"
-    "You haven't hosted any bot yet.\n"
-    "Tap 🚀 <b>Host a New Bot</b> to get started!"
+    "📂 <b>My Bots</b>\n\n"
+    "You haven't added a bot yet.\n\n"
+    "Tap 🚀 <b>Host a New Bot</b> and you'll be live in a few minutes!"
 )
 
-MY_BOTS_HEADER = "📂 <b>Your Hosted Bots</b>\n"
+MY_BOTS_HEADER = "📂 <b>My Bots</b>\n"
 
 STATS = (
-    "📊 <b>Hosting Statistics</b>\n\n"
-    "🤖 Total Bots: <b>{total}</b>\n"
+    "📊 <b>Your Hosting Overview</b>\n\n"
+    "🤖 Total bots: <b>{total}</b>\n"
     "🟢 Running: <b>{running}</b>\n"
     "⏹ Stopped: <b>{stopped}</b>"
 )
 
+# ---------------------------------------------------------------------------
+# Connect GitHub / How It Works / Support
+# ---------------------------------------------------------------------------
 GITHUB_AUTH = (
-    "🔗 <b>GitHub Authentication</b>\n\n"
-    "Connect your GitHub account so the AI can fix your code.\n"
-    "This feature arrives in <i>Phase 6</i> (secure OAuth)."
+    "🔗 <b>Connect GitHub</b>\n\n"
+    "Linking your GitHub account lets our AI assistant fix errors in your bot "
+    "and open a pull request for you to approve.\n\n"
+    "🔒 You stay in full control — nothing changes in your code without your okay.\n\n"
+    "<i>This feature is coming in an upcoming update.</i>"
 )
 
 DOCS = (
-    "📖 <b>Documentation</b>\n\n"
-    "1️⃣ Share your GitHub repo URL\n"
-    "2️⃣ Set the required env variables step by step\n"
-    "3️⃣ Press <b>Confirm &amp; Deploy</b>\n"
-    "4️⃣ Your bot is live! 🎉\n\n"
-    "If anything fails, the AI explains the cause and suggests a fix."
+    "📖 <b>How It Works</b>\n\n"
+    "Hosting a bot here takes 3 simple steps:\n\n"
+    "1️⃣ <b>Share your code</b> — paste your bot's GitHub link\n"
+    "2️⃣ <b>Set it up</b> — answer a few questions (we ask one at a time)\n"
+    "3️⃣ <b>Deploy</b> — tap the button and your bot comes alive 🎉\n\n"
+    "<b>What you DON'T need:</b>\n"
+    "❌ A VPS or server\n"
+    "❌ A terminal or commands\n"
+    "❌ Any coding setup\n\n"
+    "If something goes wrong, our AI assistant explains it in plain language and "
+    "helps you fix it. That's it — hosting made easy. 💙"
 )
 
 SUPPORT = (
-    "🆘 <b>Support</b>\n\n"
-    "Got a problem or question? Let us know here.\n"
-    "We'll help you out quickly! 💬"
+    "🆘 <b>Help &amp; Support</b>\n\n"
+    "Stuck on something or have a question? We're here for you.\n\n"
+    "💬 Send us a message and we'll help you get your bot running.\n"
+    f"💙 Thanks for using {BRAND_NAME}!"
 )
 
-BACK_HINT = "⬅️ Tap the button below to return to the main menu."
+BACK_HINT = "⬅️ Tap the button below to go back."
 
+# ---------------------------------------------------------------------------
+# Admin
+# ---------------------------------------------------------------------------
 ADMIN_PANEL = (
     "👑 <b>Admin Panel</b>\n\n"
-    "👥 Total Users: <b>{users}</b>\n"
-    "🤖 Total Bots: <b>{bots}</b>\n"
+    "👥 Total users: <b>{users}</b>\n"
+    "🤖 Total bots: <b>{bots}</b>\n"
     "🟢 Running: <b>{running}</b>\n"
     "❌ Failed: <b>{failed}</b>"
 )

@@ -1,4 +1,6 @@
-# 🚀 AI-Powered Telegram Bot Hosting Platform
+# 🪺 BotNest — AI-Powered Telegram Bot Hosting
+
+<i>Host Telegram bots in minutes — no VPS, no code.</i>
 
 VPS ছাড়াই Telegram bot host করার সম্পূর্ণ স্বয়ংক্রিয় platform। ইউজার শুধু GitHub repo দেবে, env variable ধাপে ধাপে বসাবে, Deploy চাপবে — bot চালু। Deploy fail করলে AI (Claude) সমস্যা ধরে GitHub PR-এর মাধ্যমে fix suggest করবে।
 

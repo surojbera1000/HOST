@@ -66,13 +66,13 @@ class AnalysisResult:
     def to_report(self) -> str:
         """Build the HTML deployment report shown in Telegram."""
         lines = [
-            "📋 <b>Deployment Report</b>",
-            f"📦 <b>Repo:</b> <code>{self.repo_full}</code>",
+            "✅ <b>All checked — here's what I found!</b>\n",
+            f"📦 <b>Project:</b> <code>{self.repo_full}</code>",
             f"🌿 <b>Branch:</b> <code>{self.branch}</code>",
             f"🔤 <b>Language:</b> {self.language or 'Unknown'}",
             f"🧩 <b>Framework:</b> {self.framework or 'Not detected'}",
-            f"📄 <b>Entry point:</b> <code>{self.entrypoint or 'Not found'}</code>",
-            f"▶️ <b>Startup:</b> <code>{self.startup_cmd or 'Not detected'}</code>",
+            f"📄 <b>Main file:</b> <code>{self.entrypoint or 'Not found'}</code>",
+            f"▶️ <b>Start command:</b> <code>{self.startup_cmd or 'Not detected'}</code>",
         ]
 
         dep_count = len(self.dependencies)
@@ -85,19 +85,20 @@ class AnalysisResult:
         else:
             lines.append("<i>None found</i>")
 
-        lines.append(f"\n🔑 <b>Required Env Variables ({len(self.env_vars)}):</b>")
+        lines.append(f"\n🔑 <b>Settings it needs ({len(self.env_vars)}):</b>")
         if self.env_vars:
             for v in self.env_vars:
                 lines.append(f"  • <code>{v}</code>")
+            lines.append("<i>Don't worry — I'll walk you through each one.</i>")
         else:
-            lines.append("<i>None detected</i>")
+            lines.append("<i>None — nothing extra to set up.</i>")
 
         if self.issues:
-            lines.append("\n⚠️ <b>Issues:</b>")
+            lines.append("\n⚠️ <b>Heads up:</b>")
             for issue in self.issues:
                 lines.append(f"  • {issue}")
         else:
-            lines.append("\n✅ <b>No blocking issues detected.</b>")
+            lines.append("\n✅ <b>Looks good — ready to set up!</b>")
 
         return "\n".join(lines)
 
