@@ -1,5 +1,6 @@
 # --- Telegram bot (control plane) ---
-aiogram==3.13.1
+# 3.31.0+ supports colored inline buttons (Bot API 9.4 "style" field)
+aiogram==3.31.0
 
 # --- Config & validation ---
 pydantic==2.9.2

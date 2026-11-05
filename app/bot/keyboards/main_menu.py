@@ -1,25 +1,75 @@
-"""Inline keyboards — colourful emoji main menu and navigation."""
+"""Inline keyboards — colourful styled main menu and navigation.
+
+Button colours use the Bot API 9.4 ``style`` field:
+  - "primary" -> blue
+  - "success" -> green
+  - "danger"  -> red
+Older Telegram clients simply ignore the style and show default buttons.
+"""
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
 def main_menu_kb() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardBuilder()
-    kb.button(text="🚀 Host a New Bot", callback_data="menu:host")
-    kb.button(text="📂 My Hosted Bots", callback_data="menu:mybots")
-    kb.button(text="📊 Hosting Statistics", callback_data="menu:stats")
-    kb.button(text="🔗 GitHub Authentication", callback_data="menu:github")
-    kb.button(text="📖 Documentation", callback_data="menu:docs")
-    kb.button(text="💎 Plans & Pricing", callback_data="menu:plans")
-    kb.button(text="🆘 Support", callback_data="menu:support")
-    # layout: rows of 2, 2, 2, 1
-    kb.adjust(2, 2, 2, 1)
-    return kb.as_markup()
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🚀 Host a New Bot",
+                    callback_data="menu:host",
+                    style="success",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📂 My Hosted Bots",
+                    callback_data="menu:mybots",
+                    style="primary",
+                ),
+                InlineKeyboardButton(
+                    text="📊 Statistics",
+                    callback_data="menu:stats",
+                    style="primary",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔗 GitHub Auth",
+                    callback_data="menu:github",
+                    style="primary",
+                ),
+                InlineKeyboardButton(
+                    text="📖 Documentation",
+                    callback_data="menu:docs",
+                    style="primary",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="💎 Plans & Pricing",
+                    callback_data="menu:plans",
+                    style="success",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🆘 Support",
+                    callback_data="menu:support",
+                    style="danger",
+                ),
+            ],
+        ]
+    )
 
 
 def back_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Back to Menu", callback_data="menu:home")]
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Back to Menu",
+                    callback_data="menu:home",
+                    style="primary",
+                )
+            ]
         ]
     )
