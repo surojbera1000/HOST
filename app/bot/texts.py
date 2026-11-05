@@ -43,13 +43,6 @@ DOCS = (
     "If anything fails, the AI explains the cause and suggests a fix."
 )
 
-PLANS = (
-    "💎 <b>Plans &amp; Pricing</b>\n\n"
-    "🆓 <b>Free</b> — 1 bot, basic resources\n"
-    "⭐ <b>Pro</b> — coming soon\n\n"
-    "<i>Payments will be added in a later phase.</i>"
-)
-
 SUPPORT = (
     "🆘 <b>Support</b>\n\n"
     "Got a problem or question? Let us know here.\n"

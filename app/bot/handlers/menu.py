@@ -60,12 +60,6 @@ async def docs(cb: CallbackQuery) -> None:
     await cb.answer()
 
 
-@router.callback_query(F.data == "menu:plans")
-async def plans(cb: CallbackQuery) -> None:
-    await cb.message.edit_text(texts.PLANS, reply_markup=back_kb())
-    await cb.answer()
-
-
 @router.callback_query(F.data == "menu:support")
 async def support(cb: CallbackQuery) -> None:
     await cb.message.edit_text(texts.SUPPORT, reply_markup=back_kb())

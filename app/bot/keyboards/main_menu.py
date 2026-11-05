@@ -45,13 +45,6 @@ def main_menu_kb() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="💎 Plans & Pricing",
-                    callback_data="menu:plans",
-                    style="success",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
                     text="🆘 Support",
                     callback_data="menu:support",
                     style="danger",
