@@ -84,6 +84,46 @@ def summary_kb() -> InlineKeyboardMarkup:
     )
 
 
+def deployed_kb() -> InlineKeyboardMarkup:
+    """Shown after a deploy attempt (success or failure)."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📂 My Bots",
+                    callback_data="menu:mybots",
+                    style="success",
+                ),
+                InlineKeyboardButton(
+                    text="🏠 Menu",
+                    callback_data="menu:home",
+                    style="primary",
+                ),
+            ]
+        ]
+    )
+
+
+def retry_kb() -> InlineKeyboardMarkup:
+    """Shown when a deploy fails, to let the user go back or home."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📂 My Bots",
+                    callback_data="menu:mybots",
+                    style="primary",
+                ),
+                InlineKeyboardButton(
+                    text="🏠 Menu",
+                    callback_data="menu:home",
+                    style="primary",
+                ),
+            ]
+        ]
+    )
+
+
 def edit_list_kb(keys: list[str]) -> InlineKeyboardMarkup:
     """One button per variable, so the user can pick which to re-enter."""
     rows = [

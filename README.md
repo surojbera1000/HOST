@@ -15,18 +15,21 @@ VPS ছাড়াই Telegram bot host করার সম্পূর্ণ �
 - **Anthropic Claude** — AI error debugging
 - **GitHub API + OAuth** — repo analysis + PR fixes
 
-## ✅ এখন পর্যন্ত যা হয়েছে (Phase 0 + 1)
+## ✅ এখন পর্যন্ত যা হয়েছে (Phase 0 → 4)
 - পুরো project scaffold + Docker setup
 - MongoDB models (User, HostedBot, Deployment)
 - Secret encryption (Fernet) + secret-redacting logger
-- Telegram bot: `/start`, রঙিন inline main menu, সব মেনু navigation
+- Telegram bot: `/start`, রঙিন inline main menu (Bot API 9.4 styled buttons)
+- **Phase 2:** GitHub repo analysis — language/framework/entry-point/deps/env detect
+- **Phase 3:** ধাপে ধাপে env variable সংগ্রহ (encrypted) + review/edit + summary
+- **Phase 4:** আসল Docker deployment engine — isolated container-এ clone → install → run
 - `/admin` panel (owner-only basic stats)
 
 ## 🛠 সেটআপ (কীভাবে চালাবেন)
 
 ### ১. Secret key বানান
 ```bash
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+python3 -c "import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
 ```
 
 ### ২. `.env` ফাইল তৈরি করুন
@@ -57,9 +60,9 @@ python -m app.main
 Telegram-এ আপনার bot খুলে `/start` পাঠান → রঙিন মেনু দেখবেন। 🎉
 
 ## 🗺 পরবর্তী ধাপ
-- **Phase 2** — GitHub repo analysis engine
-- **Phase 3** — ধাপে ধাপে env variable সংগ্রহ (FSM)
-- **Phase 4** — Docker deploy engine
-- **Phase 5** — bot management dashboard
-- **Phase 6** — AI debugging + GitHub OAuth + PR fixes
-- **Phase 7** — admin panel + billing
+- ✅ **Phase 2** — GitHub repo analysis engine
+- ✅ **Phase 3** — ধাপে ধাপে env variable সংগ্রহ (FSM)
+- ✅ **Phase 4** — Docker deploy engine
+- ⏳ **Phase 5** — bot management dashboard (start/stop/restart/logs/delete)
+- ⏳ **Phase 6** — AI debugging + GitHub OAuth + PR fixes
+- ⏳ **Phase 7** — admin panel + billing

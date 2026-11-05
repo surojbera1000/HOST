@@ -11,8 +11,10 @@ from aiogram.types import CallbackQuery, Message
 from app.bot.keyboards.host import (
     cancel_kb,
     collect_kb,
+    deployed_kb,
     edit_list_kb,
     report_kb,
+    retry_kb,
     summary_kb,
 )
 from app.bot.keyboards.main_menu import main_menu_kb
@@ -20,8 +22,9 @@ from app.bot.states import HostBot
 from app.bot import texts
 from app.core.logging import get_logger
 from app.core.security import encrypt
-from app.db.models import BotStatus, EnvVar, HostedBot
+from app.db.models import BotStatus, Deployment, EnvVar, HostedBot
 from app.services.analyzer import analyze_repo
+from app.services.deployer import deploy_bot
 from app.services.github import GitHubError, parse_repo_url
 
 router = Router(name="host")
@@ -90,7 +93,7 @@ async def receive_repo(message: Message, state: FSMContext) -> None:
         bot_name=result.repo,
         owner=result.owner,
         repo=result.repo,
-        branch=result.branch,
+        branch=result.branch or "main",
         language=result.language,
         framework=result.framework,
         entrypoint=result.entrypoint,
@@ -287,32 +290,82 @@ async def receive_edit_value(message: Message, state: FSMContext) -> None:
 @router.callback_query(F.data == "host:deploy")
 async def deploy(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
+    env_encrypted = data.get("env_values", {})
 
     env_vars = [
         EnvVar(key=key, value_encrypted=enc, is_sensitive=is_sensitive(key))
-        for key, enc in data.get("env_values", {}).items()
+        for key, enc in env_encrypted.items()
     ]
     bot = HostedBot(
         owner_id=cb.from_user.id,
         name=data.get("bot_name", "Untitled Bot"),
         repo_url=data.get("repo_url"),
+        branch=data.get("branch", "main"),
         language=data.get("language"),
         framework=data.get("framework"),
         entrypoint=data.get("entrypoint"),
         startup_cmd=data.get("startup_cmd"),
         env_vars=env_vars,
-        status=BotStatus.PENDING,
+        status=BotStatus.DEPLOYING,
     )
     await bot.insert()
     log.info("bot_saved", owner=cb.from_user.id, repo=data.get("repo_url"), vars=len(env_vars))
 
     await state.clear()
-    await cb.message.edit_text(
-        texts.DEPLOY_SAVED.format(
-            name=bot.name,
-            repo=f"{data.get('owner')}/{data.get('repo')}",
-            count=len(env_vars),
-        ),
-        reply_markup=main_menu_kb(),
+    await cb.answer("Deploying…")
+    await cb.message.edit_text(texts.DEPLOYING)
+
+    deployment = Deployment(bot_id=str(bot.id), status=BotStatus.DEPLOYING)
+    await deployment.insert()
+
+    # Run the actual container deployment (clone -> install -> start).
+    result = await deploy_bot(
+        bot_id=str(bot.id),
+        repo_url=bot.repo_url or "",
+        branch=bot.branch,
+        startup_cmd=bot.startup_cmd or "python main.py",
+        env_encrypted=env_encrypted,
     )
-    await cb.answer("Saved!")
+
+    # Persist the outcome.
+    from datetime import datetime, timezone
+    deployment.logs = result.logs
+    deployment.finished_at = datetime.now(timezone.utc)
+
+    if result.success:
+        bot.status = BotStatus.RUNNING
+        bot.container_id = result.container_id
+        deployment.status = BotStatus.RUNNING
+        await bot.save()
+        await deployment.save()
+        await cb.message.edit_text(
+            texts.DEPLOY_SUCCESS.format(name=bot.name),
+            reply_markup=deployed_kb(),
+        )
+    elif result.status == "failed":
+        bot.status = BotStatus.FAILED
+        bot.container_id = result.container_id
+        deployment.status = BotStatus.FAILED
+        deployment.error_summary = result.error
+        await bot.save()
+        await deployment.save()
+        import html
+        logs_tail = html.escape((result.logs or "")[-1200:] or "(no output)")
+        await cb.message.edit_text(
+            texts.DEPLOY_FAILED.format(
+                name=bot.name,
+                reason=result.error or "The bot exited unexpectedly.",
+                logs=logs_tail,
+            ),
+            reply_markup=retry_kb(),
+        )
+    else:  # "error" — infrastructure problem
+        bot.status = BotStatus.FAILED
+        deployment.status = BotStatus.FAILED
+        deployment.error_summary = result.error
+        await bot.save()
+        await deployment.save()
+        await cb.message.edit_text(
+            texts.DEPLOY_ERROR.format(reason=result.error or "Unknown error."),
+            reply_markup=retry_kb(),
+        )

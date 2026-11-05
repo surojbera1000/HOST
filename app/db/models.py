@@ -46,6 +46,7 @@ class HostedBot(Document):
     owner_id: int                       # telegram_id
     name: str = "Untitled Bot"
     repo_url: str | None = None
+    branch: str = "main"
     language: str | None = None
     framework: str | None = None
     entrypoint: str | None = None

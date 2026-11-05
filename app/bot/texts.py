@@ -73,14 +73,38 @@ EDIT_INTRO = (
 
 EDIT_ASK = "✏️ Send the new value for <code>{key}</code>:"
 
-DEPLOY_SAVED = (
-    "✅ <b>All set — your bot is queued!</b>\n\n"
+DEPLOYING = (
+    "🚀 <b>Deploying your bot…</b>\n\n"
+    "⬇️ Getting your code\n"
+    "📦 Installing what it needs\n"
+    "⚡ Starting it up\n\n"
+    "This usually takes under a minute — hang tight! ⏳"
+)
+
+DEPLOY_SUCCESS = (
+    "🎉 <b>Your bot is live!</b>\n\n"
     "🤖 <b>Bot:</b> {name}\n"
-    "📦 <b>Source:</b> <code>{repo}</code>\n"
-    "🔑 <b>Settings saved:</b> {count}\n"
-    "📊 <b>Status:</b> Pending\n\n"
-    "Everything is saved securely. The live deployment (where your bot actually "
-    "starts running) is coming in the next update — your bot is ready and waiting for it. 🚀"
+    "🟢 <b>Status:</b> Running\n"
+    "📦 <b>Repository:</b> Connected\n"
+    "⚡ <b>Hosting:</b> Active\n\n"
+    "Open <b>📂 My Bots</b> any time to check on it, view logs, or restart it."
+)
+
+DEPLOY_FAILED = (
+    "😕 <b>Hmm, your bot didn't start.</b>\n\n"
+    "🤖 <b>Bot:</b> {name}\n"
+    "🔴 <b>Status:</b> Failed\n\n"
+    "{reason}\n\n"
+    "<b>Last log lines:</b>\n"
+    "<pre>{logs}</pre>\n\n"
+    "💡 Don't worry — our AI assistant will help you fix this automatically in an "
+    "upcoming update. For now you can check your settings and try again."
+)
+
+DEPLOY_ERROR = (
+    "⚠️ <b>Couldn't deploy right now.</b>\n\n"
+    "{reason}\n\n"
+    "Your bot is saved — please try again in a moment."
 )
 
 # ---------------------------------------------------------------------------
