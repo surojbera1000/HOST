@@ -15,12 +15,6 @@ async def go_home(cb: CallbackQuery) -> None:
     await cb.answer()
 
 
-@router.callback_query(F.data == "menu:host")
-async def host_new(cb: CallbackQuery) -> None:
-    await cb.message.edit_text(texts.HOST_NEW, reply_markup=back_kb())
-    await cb.answer()
-
-
 @router.callback_query(F.data == "menu:mybots")
 async def my_bots(cb: CallbackQuery) -> None:
     bots = await HostedBot.find(HostedBot.owner_id == cb.from_user.id).to_list()

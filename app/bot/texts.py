@@ -7,10 +7,26 @@ WELCOME = (
     "Pick an option from the menu below 👇"
 )
 
-HOST_NEW = (
+ASK_REPO = (
     "🚀 <b>Host a New Bot</b>\n\n"
-    "This feature arrives in <i>Phase 2</i>.\n"
-    "You'll just share a GitHub repo URL and the system will analyze it automatically."
+    "Send me your <b>GitHub repository URL</b> and I'll analyze it automatically.\n\n"
+    "Example:\n"
+    "<code>https://github.com/username/my-telegram-bot</code>\n\n"
+    "<i>Only public repositories are supported for now.</i>"
+)
+
+ANALYZING = "🔍 <b>Analyzing repository…</b>\nThis may take a few seconds."
+
+INVALID_URL = (
+    "❌ That doesn't look like a valid GitHub URL.\n\n"
+    "Please send something like:\n"
+    "<code>https://github.com/username/repo</code>"
+)
+
+CONFIGURE_SOON = (
+    "⚙️ <b>Environment Configuration</b>\n\n"
+    "Step-by-step env variable setup arrives in <i>Phase 3</i>.\n"
+    "Your analysis is saved — we'll continue from here next."
 )
 
 MY_BOTS_EMPTY = (
