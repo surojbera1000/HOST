@@ -35,3 +35,74 @@ def report_kb() -> InlineKeyboardMarkup:
             ],
         ]
     )
+
+
+def collect_kb() -> InlineKeyboardMarkup:
+    """Shown while asking for each env variable."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⏭ Skip this one",
+                    callback_data="host:skip",
+                    style="primary",
+                ),
+                InlineKeyboardButton(
+                    text="❌ Cancel",
+                    callback_data="host:cancel",
+                    style="danger",
+                ),
+            ]
+        ]
+    )
+
+
+def summary_kb() -> InlineKeyboardMarkup:
+    """Shown on the deployment summary screen."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🚀 Confirm & Deploy",
+                    callback_data="host:deploy",
+                    style="success",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="✏️ Edit a Variable",
+                    callback_data="host:edit",
+                    style="primary",
+                ),
+                InlineKeyboardButton(
+                    text="❌ Cancel",
+                    callback_data="host:cancel",
+                    style="danger",
+                ),
+            ],
+        ]
+    )
+
+
+def edit_list_kb(keys: list[str]) -> InlineKeyboardMarkup:
+    """One button per variable, so the user can pick which to re-enter."""
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=f"✏️ {key}",
+                callback_data=f"host:editvar:{key}",
+                style="primary",
+            )
+        ]
+        for key in keys
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="⬅️ Back to Summary",
+                callback_data="host:summary",
+                style="success",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)

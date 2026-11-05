@@ -23,10 +23,41 @@ INVALID_URL = (
     "<code>https://github.com/username/repo</code>"
 )
 
-CONFIGURE_SOON = (
+CONFIG_INTRO = (
     "⚙️ <b>Environment Configuration</b>\n\n"
-    "Step-by-step env variable setup arrives in <i>Phase 3</i>.\n"
-    "Your analysis is saved — we'll continue from here next."
+    "I'll ask for each required variable one by one.\n"
+    "Just send the value as a message. Use <b>Skip</b> for optional ones.\n\n"
+    "🔒 Sensitive values are encrypted and your message is deleted immediately."
+)
+
+ASK_ENV = (
+    "🔑 <b>Variable {index}/{total}</b>\n\n"
+    "Please send the value for:\n"
+    "<code>{key}</code>{hint}"
+)
+
+ENV_SAVED_SENSITIVE = "🔒 <code>{key}</code> saved (encrypted). Your message was deleted."
+ENV_SAVED_PLAIN = "✅ <code>{key}</code> saved."
+ENV_SKIPPED = "⏭ <code>{key}</code> skipped."
+
+NO_ENV_DETECTED = (
+    "⚙️ <b>Environment Configuration</b>\n\n"
+    "No environment variables were detected for this repo, so there's nothing to set.\n"
+    "You can deploy directly."
+)
+
+EDIT_INTRO = "✏️ <b>Edit a Variable</b>\n\nPick the variable you want to change:"
+
+EDIT_ASK = "✏️ Send the new value for <code>{key}</code>:"
+
+DEPLOY_SAVED = (
+    "✅ <b>Configuration Saved!</b>\n\n"
+    "🤖 <b>Bot:</b> {name}\n"
+    "📦 <b>Repo:</b> <code>{repo}</code>\n"
+    "🔑 <b>Variables set:</b> {count}\n"
+    "📊 <b>Status:</b> Pending\n\n"
+    "Your bot is queued. The actual deployment engine (containers, build, run) "
+    "arrives in <i>Phase 4</i> — everything is saved and ready for it."
 )
 
 MY_BOTS_EMPTY = (

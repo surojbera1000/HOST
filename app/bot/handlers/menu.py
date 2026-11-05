@@ -1,5 +1,6 @@
 """Callback handlers for the main menu inline buttons."""
 from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from app.bot.keyboards.main_menu import back_kb, main_menu_kb
@@ -10,7 +11,8 @@ router = Router(name="menu")
 
 
 @router.callback_query(F.data == "menu:home")
-async def go_home(cb: CallbackQuery) -> None:
+async def go_home(cb: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
     await cb.message.edit_text(texts.WELCOME, reply_markup=main_menu_kb())
     await cb.answer()
 
