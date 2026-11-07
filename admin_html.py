@@ -1,4 +1,4 @@
-export const ADMIN_HTML = String.raw`<!doctype html>
+ADMIN_HTML = r'''<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -57,8 +57,8 @@ export const ADMIN_HTML = String.raw`<!doctype html>
 
 <script>
 const F = (u,o)=>fetch(u,{headers:{'Content-Type':'application/json'},...o}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||r.status);return d;});
-const inr = p => '₹'+(p/100).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-const esc = s => String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const inr = p => '\u20b9'+(p/100).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc = s => String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const dt = ms => new Date(ms).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
 const el = document.getElementById.bind(document);
 let TAB='Dashboard'; const TABS=['Dashboard','Deposits','Pricing','Orders','Users','Settings'];
@@ -75,35 +75,35 @@ async function boot(){
   catch{ el('login').classList.remove('hidden'); el('app').classList.add('hidden'); return; }
   el('login').classList.add('hidden'); el('app').classList.remove('hidden');
   el('tabs').innerHTML = TABS.map(t=>'<button data-t="'+t+'" class="'+(t===TAB?'on':'')+'" onclick="go(\''+t+'\')">'+t+'</button>').join('');
-  try{ services = (await F('/api/services')).services; }catch{}
+  try{ services = (await F('/api/services')).services; }catch(e){}
   render();
 }
 function go(t){ TAB=t; document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t)); render(); }
 function render(){ ({Dashboard,Deposits,Pricing,Orders,Users,Settings}[TAB])(); }
 
 async function Dashboard(){
-  el('view').innerHTML='<div class="muted">Loading…</div>';
+  el('view').innerHTML='<div class="muted">Loading\u2026</div>';
   const o = await F('/api/overview');
   const profit = o.today.salesPaise - o.today.costPaise;
   let warn='';
-  if(o.grizzlyInrPaise!==null && o.grizzlyInrPaise < o.walletTotalPaise) warn+='<div class="warn">⚠️ GrizzlySMS balance is lower than customers\' total wallet. Top it up so orders don\'t fail.</div>';
-  if(!o.gmail.configured) warn+='<div class="warn">⚠️ Gmail not configured — automatic deposits are OFF. Set GMAIL_USER / GMAIL_APP_PASSWORD.</div>';
+  if(o.grizzlyInrPaise!==null && o.grizzlyInrPaise < o.walletTotalPaise) warn+='<div class="warn">\u26A0\uFE0F GrizzlySMS balance is lower than customers\' total wallet. Top it up so orders don\'t fail.</div>';
+  if(!o.gmail.configured) warn+='<div class="warn">\u26A0\uFE0F Gmail not configured \u2014 automatic deposits are OFF. Set GMAIL_USER / GMAIL_APP_PASSWORD.</div>';
   el('view').innerHTML = warn +
     '<div class="grid">'+
     stat('Sales today', inr(o.today.salesPaise), o.today.orders+' numbers')+
     stat('Profit today', inr(profit), 'cost '+inr(o.today.costPaise))+
     stat('Deposits today', inr(o.today.topupPaise))+
     stat('Users', o.users, 'wallets '+inr(o.walletTotalPaise))+
-    stat('GrizzlySMS', o.grizzlyUsd===null?'—':'$'+o.grizzlyUsd.toFixed(2), o.grizzlyInrPaise===null?'':'≈ '+inr(o.grizzlyInrPaise))+
+    stat('GrizzlySMS', o.grizzlyUsd===null?'\u2014':'$'+o.grizzlyUsd.toFixed(2), o.grizzlyInrPaise===null?'':'\u2248 '+inr(o.grizzlyInrPaise))+
     stat('Gmail auto deposit', o.gmail.configured?'On':'Off', o.gmail.lastOk?('last '+dt(o.gmail.lastOk)):'')+
     '</div>';
 }
 const stat=(l,v,s)=>'<div class="stat"><div class="l">'+l+'</div><div class="v">'+v+'</div>'+(s?'<div class="muted">'+s+'</div>':'')+'</div>';
 
 async function Deposits(){
-  el('view').innerHTML='<div class="muted">Loading…</div>';
+  el('view').innerHTML='<div class="muted">Loading\u2026</div>';
   const {deposits}=await F('/api/deposits?status=all');
-  const rows=deposits.map(p=>'<tr><td>'+p.id+'</td><td>'+dt(p.created_at)+'</td><td>'+(p.username?('@'+esc(p.username)):p.telegram_id)+'</td><td><b>'+inr(p.amount_paise)+'</b></td><td>'+esc(p.utr||'—')+'</td><td>'+badge(p.status)+'</td><td>'+
+  const rows=deposits.map(p=>'<tr><td>'+p.id+'</td><td>'+dt(p.created_at)+'</td><td>'+(p.username?('@'+esc(p.username)):p.telegram_id)+'</td><td><b>'+inr(p.amount_paise)+'</b></td><td>'+esc(p.utr||'\u2014')+'</td><td>'+badge(p.status)+'</td><td>'+
     (p.status==='paid'?'':'<button class="act p" onclick="approve('+p.id+')">Approve</button> <button class="act d" onclick="reject('+p.id+')">Reject</button>')+'</td></tr>').join('');
   el('view').innerHTML='<div class="card"><h3>Deposits</h3><div class="muted">Matched automatically from FamApp emails. Approve by hand only if a payment did not match.</div><div style="overflow:auto"><table><tr><th>#</th><th>Date</th><th>User</th><th>Amount</th><th>UTR</th><th>Status</th><th></th></tr>'+(rows||'<tr><td colspan=7 class=muted>None</td></tr>')+'</table></div></div>';
 }
@@ -111,9 +111,9 @@ async function approve(id){ const utr=prompt('Transaction ID / UTR (optional):')
 async function reject(id){ if(!confirm('Reject deposit #'+id+'?'))return; await F('/api/deposits/'+id+'/reject',{method:'POST'}); Deposits(); }
 
 async function Orders(){
-  el('view').innerHTML='<div class="muted">Loading…</div>';
+  el('view').innerHTML='<div class="muted">Loading\u2026</div>';
   const {orders}=await F('/api/orders');
-  const rows=orders.map(o=>'<tr><td>'+o.id+'</td><td>'+dt(o.created_at)+'</td><td>'+(o.username?('@'+esc(o.username)):o.telegram_id)+'</td><td>'+esc(o.service_name)+'<div class=muted>'+esc(o.country_name)+'</div></td><td>'+(o.phone?('+'+esc(o.phone)):'—')+'</td><td>'+(JSON.parse(o.codes).map(esc).join(', ')||'—')+'</td><td>'+inr(o.price_paise)+'</td><td>'+badge(o.status)+'</td></tr>').join('');
+  const rows=orders.map(o=>'<tr><td>'+o.id+'</td><td>'+dt(o.created_at)+'</td><td>'+(o.username?('@'+esc(o.username)):o.telegram_id)+'</td><td>'+esc(o.service_name)+'<div class=muted>'+esc(o.country_name)+'</div></td><td>'+(o.phone?('+'+esc(o.phone)):'\u2014')+'</td><td>'+(JSON.parse(o.codes).map(esc).join(', ')||'\u2014')+'</td><td>'+inr(o.price_paise)+'</td><td>'+badge(o.status)+'</td></tr>').join('');
   el('view').innerHTML='<div class="card"><h3>Orders</h3><div style="overflow:auto"><table><tr><th>#</th><th>Date</th><th>User</th><th>Service</th><th>Number</th><th>OTP</th><th>Price</th><th>Status</th></tr>'+(rows||'<tr><td colspan=8 class=muted>None</td></tr>')+'</table></div></div>';
 }
 
@@ -122,23 +122,23 @@ async function Users(){
   loadUsers();
 }
 async function loadUsers(){
-  const q=encodeURIComponent(el('uq')?.value||'');
+  const q=encodeURIComponent((el('uq')&&el('uq').value)||'');
   const {users}=await F('/api/users?q='+q);
-  const rows=users.map(u=>'<tr><td>'+u.id+'</td><td>'+(u.username?('@'+esc(u.username)):'')+'<div class=muted>'+esc(u.first_name||'')+' · '+u.telegram_id+'</div></td><td><b>'+inr(u.balance_paise)+'</b></td><td>'+inr(u.topup_paise)+'</td><td>'+u.orders+'</td><td>'+(u.blocked?'<span class="badge b-other">blocked</span>':'')+'</td><td><button class="act g" onclick="adjust('+u.id+')">± Balance</button> <button class="act d" onclick="block('+u.id+','+(u.blocked?0:1)+')">'+(u.blocked?'Unblock':'Block')+'</button></td></tr>').join('');
+  const rows=users.map(u=>'<tr><td>'+u.id+'</td><td>'+(u.username?('@'+esc(u.username)):'')+'<div class=muted>'+esc(u.first_name||'')+' \u00b7 '+u.telegram_id+'</div></td><td><b>'+inr(u.balance_paise)+'</b></td><td>'+inr(u.topup_paise)+'</td><td>'+u.orders+'</td><td>'+(u.blocked?'<span class="badge b-other">blocked</span>':'')+'</td><td><button class="act g" onclick="adjust('+u.id+')">\u00b1 Balance</button> <button class="act d" onclick="block('+u.id+','+(u.blocked?0:1)+')">'+(u.blocked?'Unblock':'Block')+'</button></td></tr>').join('');
   el('ut').innerHTML='<table><tr><th>#</th><th>User</th><th>Balance</th><th>Topups</th><th>Nums</th><th></th><th></th></tr>'+(rows||'<tr><td colspan=7 class=muted>None</td></tr>')+'</table>';
 }
-async function adjust(id){ const v=prompt('Change balance by ₹ (minus to deduct, e.g. -20):'); if(!v)return; const note=prompt('Reason (shown to user):')||''; try{ await F('/api/users/'+id+'/balance',{method:'POST',body:JSON.stringify({amount:Number(v),note})}); loadUsers(); }catch(e){ alert(e.message);} }
+async function adjust(id){ const v=prompt('Change balance by \u20b9 (minus to deduct, e.g. -20):'); if(!v)return; const note=prompt('Reason (shown to user):')||''; try{ await F('/api/users/'+id+'/balance',{method:'POST',body:JSON.stringify({amount:Number(v),note})}); loadUsers(); }catch(e){ alert(e.message);} }
 async function block(id,b){ await F('/api/users/'+id+'/block',{method:'POST',body:JSON.stringify({blocked:b})}); loadUsers(); }
 
 async function Pricing(){
-  el('view').innerHTML='<div class="muted">Loading…</div>';
+  el('view').innerHTML='<div class="muted">Loading\u2026</div>';
   const {rules}=await F('/api/rules');
-  const opts='<option value="default">Default (cost × rate)</option><option value="plus">Plus ₹ (add on top)</option><option value="markup">Markup %</option><option value="fixed">Fixed ₹ (flat)</option>';
+  const opts='<option value="default">Default (cost \u00d7 rate)</option><option value="plus">Plus \u20b9 (add on top)</option><option value="markup">Markup %</option><option value="fixed">Fixed \u20b9 (flat)</option>';
   const svcList = services.map(s=>'<option value="'+esc(s.code)+'">'+esc(s.name)+' ('+esc(s.code)+')</option>').join('');
   const rows=rules.map(r=>'<tr><td>'+esc(r.service)+'</td><td>'+esc(r.country)+'</td><td>'+r.mode+(r.mode==='default'?'':' '+r.value)+'</td><td>'+(r.hidden?'Yes':'No')+'</td><td><button class="act d" onclick="delRule('+r.id+')">Delete</button></td></tr>').join('');
   el('view').innerHTML=
     '<div class="card"><h3>Add / update rule</h3>'+
-    '<div class="muted">Default selling price = GrizzlySMS cost × USD→INR rate (Settings). A rule overrides it for one service (all countries with <b>*</b>, or one country code). WhatsApp has a default <b>Plus ₹40</b> rule.</div>'+
+    '<div class="muted">Default selling price = GrizzlySMS cost \u00d7 USD\u2192INR rate (Settings). A rule overrides it for one service (all countries with <b>*</b>, or one country code). WhatsApp has a default <b>Plus \u20b940</b> rule.</div>'+
     '<div class="row" style="margin-top:10px">'+
     '<div style="flex:2"><label>Service</label><input id="rsvc" list="svclist" placeholder="wa  (or * for all)"><datalist id="svclist">'+svcList+'</datalist></div>'+
     '<div style="flex:1"><label>Country code</label><input id="rctry" value="*" placeholder="* or 22"></div>'+
@@ -152,16 +152,16 @@ async function Pricing(){
 async function saveRule(){ try{ await F('/api/rules',{method:'POST',body:JSON.stringify({service:el('rsvc').value.trim(),country:el('rctry').value.trim()||'*',mode:el('rmode').value,value:Number(el('rval').value||0),hidden:el('rhid').value==='1'})}); Pricing(); }catch(e){ alert(e.message);} }
 async function delRule(id){ if(!confirm('Delete rule?'))return; await F('/api/rules/'+id,{method:'DELETE'}); Pricing(); }
 
-const SET=[['usd_inr_rate','USD → INR rate','number'],['global_markup_pct','Global markup %','number'],['min_topup_inr','Minimum deposit (₹)','number'],['max_topup_inr','Maximum deposit (₹)','number'],['payment_window_min','Deposit QR valid (minutes)','number'],['order_timeout_min','Number valid (minutes)','number'],['upi_id','UPI ID (receives money)','text'],['upi_name','UPI payee name','text'],['welcome_text','Welcome note (optional)','text']];
+const SET=[['usd_inr_rate','USD \u2192 INR rate','number'],['global_markup_pct','Global markup %','number'],['min_topup_inr','Minimum deposit (\u20b9)','number'],['max_topup_inr','Maximum deposit (\u20b9)','number'],['payment_window_min','Deposit QR valid (minutes)','number'],['order_timeout_min','Number valid (minutes)','number'],['upi_id','UPI ID (receives money)','text'],['upi_name','UPI payee name','text'],['welcome_text','Welcome note (optional)','text']];
 async function Settings(){
   const {settings}=await F('/api/settings');
-  el('view').innerHTML='<div class="card"><h3>Settings</h3>'+SET.map(([k,l,t])=>'<label>'+l+'</label><input id="s_'+k+'" type="'+t+'" value="'+esc(settings[k]??'')+'">').join('')+'<button class="act p" style="margin-top:14px" onclick="saveSettings()">Save settings</button> <span id="sok" class="muted"></span></div>';
+  el('view').innerHTML='<div class="card"><h3>Settings</h3>'+SET.map(([k,l,t])=>'<label>'+l+'</label><input id="s_'+k+'" type="'+t+'" value="'+esc(settings[k]==null?'':settings[k])+'">').join('')+'<button class="act p" style="margin-top:14px" onclick="saveSettings()">Save settings</button> <span id="sok" class="muted"></span></div>';
 }
-async function saveSettings(){ const body={}; SET.forEach(([k])=>body[k]=el('s_'+k).value); try{ await F('/api/settings',{method:'POST',body:JSON.stringify(body)}); el('sok').textContent='Saved ✓'; }catch(e){ alert(e.message);} }
+async function saveSettings(){ const body={}; SET.forEach(([k])=>body[k]=el('s_'+k).value); try{ await F('/api/settings',{method:'POST',body:JSON.stringify(body)}); el('sok').textContent='Saved \u2713'; }catch(e){ alert(e.message);} }
 
 function badge(s){ const c=s==='paid'?'b-paid':s==='pending'?'b-pending':'b-other'; return '<span class="badge '+c+'">'+s+'</span>'; }
 
 boot();
 </script>
 </body>
-</html>`;
+</html>'''
