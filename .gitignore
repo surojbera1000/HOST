@@ -1,21 +1,10 @@
-# Secrets
+node_modules
+dist
+data
+*.sqlite
+*.sqlite-*
 .env
-*.key
-
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-env/
-
-# Data
-data/
-*.log
-logs/
-
-# OS / editor
+.env.*
+!.env.example
+npm-debug.log*
 .DS_Store
-.idea/
-.vscode/

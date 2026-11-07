@@ -1,68 +1,81 @@
-# 🪺 BotNest — AI-Powered Telegram Bot Hosting
+# Miku OTP — Telegram Bot
 
-<i>Host Telegram bots in minutes — no VPS, no code.</i>
+A Telegram bot that sells phone numbers for OTP/SMS verification. Numbers come from the
+[GrizzlySMS API](https://grizzlysms.com). Customers pay by UPI, and their wallet is credited
+**automatically** when the FamApp payment email arrives in Gmail. Runs on a VPS.
 
-VPS ছাড়াই Telegram bot host করার সম্পূর্ণ স্বয়ংক্রিয় platform। ইউজার শুধু GitHub repo দেবে, env variable ধাপে ধাপে বসাবে, Deploy চাপবে — bot চালু। Deploy fail করলে AI (Claude) সমস্যা ধরে GitHub PR-এর মাধ্যমে fix suggest করবে।
+## What it does
 
-> বিস্তারিত আর্কিটেকচার ও roadmap-এর জন্য দেখুন **[PLAN.md](./PLAN.md)**
+- **Colourful inline-button UI** (Telegram Bot API 9.4 button styles — blue/green/red).
+- **Buy a number:** pick an app → pick a country (cheapest first, with flags and live prices) → confirm → get the number. The **OTP appears in the same message** by itself, inside a highlighted box, with **copy buttons** for the number and the OTP. Cancel for a full refund if no OTP arrives.
+- **Automatic deposits:** customer taps an amount, the bot shows a UPI **QR with a timer**. When the matching FamApp email reaches Gmail, the wallet is credited and the bot replies "₹X added" — no manual step.
+- **Default ₹40 WhatsApp margin:** every WhatsApp number is priced at *cost + ₹40* by default. The admin can change or remove it.
+- **Web admin panel** (password-protected, on the VPS): dashboard (sales, profit, GrizzlySMS balance, Gmail status), pricing rules, deposits (auto-matched + manual approve), orders, users (adjust balance, block), settings.
 
-## 🧩 Tech Stack
-- **Aiogram 3.x** — Telegram bot (control panel)
-- **MongoDB** (Motor + Beanie) — ডেটা
-- **Redis** — FSM state + Celery broker
-- **Celery** — background deploy worker
-- **Docker** — প্রতি bot isolated container
-- **Anthropic Claude** — AI error debugging
-- **GitHub API + OAuth** — repo analysis + PR fixes
+## Pricing
 
-## ✅ এখন পর্যন্ত যা হয়েছে (Phase 0 → 4)
-- পুরো project scaffold + Docker setup
-- MongoDB models (User, HostedBot, Deployment)
-- Secret encryption (Fernet) + secret-redacting logger
-- Telegram bot: `/start`, রঙিন inline main menu (Bot API 9.4 styled buttons)
-- **Phase 2:** GitHub repo analysis — language/framework/entry-point/deps/env detect
-- **Phase 3:** ধাপে ধাপে env variable সংগ্রহ (encrypted) + review/edit + summary
-- **Phase 4:** আসল Docker deployment engine — isolated container-এ clone → install → run
-- `/admin` panel (owner-only basic stats)
+Selling price = GrizzlySMS cost (USD) × **USD→INR rate** (default ₹100), then a rule may apply.
+Rule modes: `default`, `plus ₹` (add a flat amount — this is the WhatsApp ₹40), `markup %`, `fixed ₹`.
+Rule priority: service+country → service (all countries) → global. The bot buys with the cost as
+`maxPrice`, so you never pay more than the price shown.
 
-## 🛠 সেটআপ (কীভাবে চালাবেন)
+## Tech
 
-### ১. Secret key বানান
+Node.js 20+, TypeScript, `better-sqlite3` (single file DB), raw Telegram Bot API over long-polling
+(no public webhook needed), `imapflow` + `mailparser` for Gmail, `qrcode`, and Express for the admin panel.
+
+## Setup on a VPS (Ubuntu)
+
 ```bash
-python3 -c "import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
-```
+# 1. Node 20+ and pm2
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+sudo npm i -g pm2
 
-### ২. `.env` ফাইল তৈরি করুন
-```bash
+# 2. Get the code
+git clone https://github.com/surojbera1000/HOST.git miku-bot
+cd miku-bot
+npm install
 cp .env.example .env
-```
-তারপর `.env` ফাইলে বসান:
-- `BOT_TOKEN` — [@BotFather](https://t.me/BotFather) থেকে
-- `API_ID`, `API_HASH` — https://my.telegram.org থেকে
-- `OWNER_ID` — [@userinfobot](https://t.me/userinfobot) থেকে আপনার Telegram ID
-- `FERNET_KEY` — উপরের কমান্ডে পাওয়া key
-- `ANTHROPIC_API_KEY` — Claude API key (AI ফিচারের জন্য)
+nano .env          # fill in the values (see below)
 
-### ৩. Docker দিয়ে চালান (সবচেয়ে সহজ)
+# 3. Build and run
+npm run build
+pm2 start ecosystem.config.cjs
+pm2 save && pm2 startup
+```
+
+### `.env` values
+
+| Variable | What |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather) → `/newbot` |
+| `GRIZZLY_API_KEY` | grizzlysms.com → Settings |
+| `ADMIN_TELEGRAM_IDS` | Your Telegram numeric ID (from @userinfobot). Gets notifications + `/admin` |
+| `ADMIN_PANEL_PASSWORD` | Password for the web admin panel |
+| `ADMIN_PANEL_PORT` | Default 8080 — open `http://SERVER_IP:8080` |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Gmail that receives FamApp emails. Needs 2-Step Verification + an App Password + IMAP on |
+| `FAMPAY_SENDER_DOMAINS` | Default `famapp.in` |
+| `SUPPORT_USERNAME` | Telegram username shown on Support buttons (default OverrMaxx) |
+
+The database is created automatically at `DATABASE_PATH` (default `./data/bot.sqlite`). Back up that
+folder. On first run a default **WhatsApp +₹40** price rule is seeded; change it in the admin panel.
+
+### Open the admin panel
+
+Go to `http://SERVER_IP:8080`, log in with `ADMIN_PANEL_PASSWORD`. For HTTPS, put Nginx or Caddy in
+front (e.g. Caddy: `admin.yourdomain.com { reverse_proxy localhost:8080 }`).
+
+## Tests
+
 ```bash
-docker compose up --build
-```
-এটি bot + MongoDB + Redis একসাথে চালু করবে।
-
-### অথবা লোকালি চালান
-```bash
-pip install -r requirements.txt
-# আলাদাভাবে MongoDB ও Redis চালু থাকতে হবে
-python -m app.main
+npm test     # offline: pricing (incl. ₹40 WhatsApp), auto deposit matching, wallet safety, bot /start
 ```
 
-### ৪. টেস্ট করুন
-Telegram-এ আপনার bot খুলে `/start` পাঠান → রঙিন মেনু দেখবেন। 🎉
+## Notes
 
-## 🗺 পরবর্তী ধাপ
-- ✅ **Phase 2** — GitHub repo analysis engine
-- ✅ **Phase 3** — ধাপে ধাপে env variable সংগ্রহ (FSM)
-- ✅ **Phase 4** — Docker deploy engine
-- ⏳ **Phase 5** — bot management dashboard (start/stop/restart/logs/delete)
-- ⏳ **Phase 6** — AI debugging + GitHub OAuth + PR fixes
-- ⏳ **Phase 7** — admin panel + billing
+- Keep **one** instance running (pm2 `instances: 1`): the long-polling loop and SQLite expect a single process.
+- Top up your GrizzlySMS balance, otherwise buying fails. The admin dashboard warns when it is low.
+- FamApp emails do not include a note, so each open deposit gets a **unique amount** (e.g. ₹100.37); the
+  exact amount identifies the payment. A Transaction ID is never credited twice, and only DKIM-verified
+  emails from `famapp.in` are trusted.
