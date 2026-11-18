@@ -4,6 +4,7 @@ import threading
 import time
 
 import catalog
+import config
 import db
 import orders as orders_mod
 import payments as pay
@@ -12,7 +13,8 @@ import tg
 import users
 from format_utils import esc, inr
 from notify import notify_admins
-from render import deposit_caption, deposit_keyboard, main_menu, order_view
+import stats
+from render import deposit_caption, deposit_keyboard, main_menu, order_view, profile_view
 
 # Per-user session for free-text input (custom deposit amount).
 _sessions: dict[int, tuple[str, float]] = {}
@@ -147,6 +149,11 @@ def _on_callback(cq: dict) -> None:
                 p = pay.get_payment(p["id"])
                 tg.edit_caption(chat_id, message_id, "\U0001F6AB Deposit cancelled.", deposit_keyboard(p))
             ack("Cancelled")
+        elif cmd == "pf":
+            fresh = users.user_by_telegram_id(frm["id"])
+            t, k = profile_view(fresh, stats.user_stats(fresh["id"]))
+            edit(t, k)
+            ack()
         elif cmd == "ords":
             _show_orders(edit, user)
             ack()
@@ -371,6 +378,9 @@ def _stats_text() -> str:
     topups = db.one("SELECT COALESCE(SUM(amount_paise),0) s FROM payments WHERE status = 'paid' AND paid_at >= ?", (start,))
     rate = db.get_setting_number("usd_inr_rate")
     profit = sales["s"] - round(sales["c"] * rate * 100)
+    tot = stats.totals()
+    gm = db.get_state("gmail_status")
+    gmail = "login failed \u26A0\uFE0F" if gm == "auth_failed" else ("ok" if gm == "ok" else ("off" if not config.gmail_configured() else "not checked"))
     try:
         bal = f"${phoenix.get_balance_usd():.2f}"
     except Exception:  # noqa: BLE001
@@ -378,10 +388,17 @@ def _stats_text() -> str:
     return (
         "\U0001F4CA <b>Today</b>\n"
         f"Users: {users_n}\n"
-        f"Numbers sold: {sales['n']} ({inr(sales['s'])})\n"
-        f"Profit: {inr(profit)}\n"
-        f"Deposits: {inr(topups['s'])}\n"
-        f"Phoenix balance: {bal}"
+        f"Sold today: {sales['n']} ({inr(sales['s'])})\n"
+        f"Profit today: {inr(profit)}\n"
+        f"Deposits today: {inr(topups['s'])}\n\n"
+        "\U0001F4C8 <b>All-time</b>\n"
+        f"Total orders: {tot['orders_total']}\n"
+        f"\u2705 Received: {tot['orders_done']}\n"
+        f"\u21A9\uFE0F Cancelled: {tot['orders_cancel']}\n"
+        f"\u2795 Money added: {inr(tot['added_paise'])}\n"
+        f"\u2796 Money deducted: {inr(tot['deducted_paise'])}\n\n"
+        f"Phoenix balance: {bal}\n"
+        f"Gmail auto-deposit: {gmail}"
     )
 
 

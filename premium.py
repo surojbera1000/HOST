@@ -16,23 +16,28 @@ def load() -> None:
     if _loaded:
         return
     _loaded = True
-    pack = config.PREMIUM_EMOJI_PACK
-    if not pack:
+    packs = [p.strip() for p in config.PREMIUM_EMOJI_PACKS if p.strip()]
+    if not packs:
         return
     import tg  # lazy to avoid an import cycle
 
-    try:
-        res = tg.call("getStickerSet", {"name": pack})
-    except Exception as e:  # noqa: BLE001
-        print("[premium] could not load pack", pack, e)
-        return
-    for st in res.get("stickers", []):
-        cid = st.get("custom_emoji_id")
-        emo = st.get("emoji")
-        # Only map single-scalar emojis (skip flags / ZWJ sequences) for safe offsets.
-        if cid and emo and len(emo) == 1 and emo not in _map:
-            _map[emo] = cid
-    print(f"[premium] loaded {len(_map)} custom emoji from {pack}")
+    for pack in packs:
+        try:
+            res = tg.call("getStickerSet", {"name": pack})
+        except Exception as e:  # noqa: BLE001
+            print("[premium] could not load pack", pack, e)
+            continue
+        added = 0
+        for st in res.get("stickers", []):
+            cid = st.get("custom_emoji_id")
+            emo = st.get("emoji")
+            # Only map single-scalar emojis (skip flags / ZWJ sequences) for safe offsets.
+            # Earlier packs win, so later packs only fill emojis not seen yet.
+            if cid and emo and len(emo) == 1 and emo not in _map:
+                _map[emo] = cid
+                added += 1
+        print(f"[premium] {pack}: +{added} custom emoji")
+    print(f"[premium] total {len(_map)} custom emoji from {len(packs)} pack(s)")
 
 
 def enabled() -> bool:

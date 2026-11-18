@@ -87,15 +87,27 @@ async function Dashboard(){
   const profit = o.today.salesPaise - o.today.costPaise;
   let warn='';
   if(o.grizzlyInrPaise!==null && o.grizzlyInrPaise < o.walletTotalPaise) warn+='<div class="warn">\u26A0\uFE0F Phoenix balance is lower than customers\' total wallet. Top it up so orders don\'t fail.</div>';
-  if(!o.gmail.configured) warn+='<div class="warn">\u26A0\uFE0F Gmail not configured \u2014 automatic deposits are OFF. Set GMAIL_USER / GMAIL_APP_PASSWORD.</div>';
+  if(o.gmail.status==='auth_failed') warn+='<div class="warn">\u26A0\uFE0F Gmail login failed \u2014 automatic deposits are paused. Use a Google App Password (not your normal password) and enable IMAP, then restart the bot.</div>';
+  else if(!o.gmail.configured) warn+='<div class="warn">\u26A0\uFE0F Gmail not configured \u2014 automatic deposits are OFF. Set GMAIL_USER / GMAIL_APP_PASSWORD.</div>';
+  const a=o.allTime||{};
+  const gm = o.gmail.status==='auth_failed'?'Login failed':(o.gmail.configured?(o.gmail.lastOk?('On \u00b7 last '+dt(o.gmail.lastOk)):'On'):'Off');
   el('view').innerHTML = warn +
     '<div class="grid">'+
     stat('Sales today', inr(o.today.salesPaise), o.today.orders+' numbers')+
     stat('Profit today', inr(profit), 'cost '+inr(o.today.costPaise))+
     stat('Deposits today', inr(o.today.topupPaise))+
     stat('Users', o.users, 'wallets '+inr(o.walletTotalPaise))+
-    stat('Phoenix', o.grizzlyUsd===null?'\u2014':'$'+o.grizzlyUsd.toFixed(2), o.grizzlyInrPaise===null?'':'\u2248 '+inr(o.grizzlyInrPaise))+
-    stat('Gmail auto deposit', o.gmail.configured?'On':'Off', o.gmail.lastOk?('last '+dt(o.gmail.lastOk)):'')+
+    '</div>'+
+    '<h3 style="margin:14px 2px 6px">All-time</h3><div class="grid">'+
+    stat('Total sell orders', a.orders_total||0)+
+    stat('Received orders', a.orders_done||0)+
+    stat('Cancelled orders', a.orders_cancel||0)+
+    stat('Money added', inr(a.added_paise||0))+
+    stat('Money deducted', inr(a.deducted_paise||0))+
+    '</div>'+
+    '<h3 style="margin:14px 2px 6px">System</h3><div class="grid">'+
+    stat('Phoenix balance', o.grizzlyUsd===null?'\u2014':'$'+o.grizzlyUsd.toFixed(2), o.grizzlyInrPaise===null?'':'\u2248 '+inr(o.grizzlyInrPaise))+
+    stat('Gmail auto deposit', gm)+
     '</div>';
 }
 const stat=(l,v,s)=>'<div class="stat"><div class="l">'+l+'</div><div class="v">'+v+'</div>'+(s?'<div class="muted">'+s+'</div>':'')+'</div>';

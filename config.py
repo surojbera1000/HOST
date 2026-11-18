@@ -37,8 +37,11 @@ REQUIRE_DKIM = _env("GMAIL_REQUIRE_DKIM", "true") != "false"
 
 SUPPORT_USERNAME = _env("SUPPORT_USERNAME", "OverrMaxx").lstrip("@")
 
-# Telegram premium custom-emoji pack name (from t.me/addemoji/<name>). "" disables premium emoji.
-PREMIUM_EMOJI_PACK = _env("PREMIUM_EMOJI_PACK", "tgiosicons").strip()
+# Telegram premium custom-emoji packs (names from t.me/addemoji/<name>). Comma separated.
+_DEFAULT_PACKS = "tgiosicons,tgciosicons,greenglow,LoveDayEmoji,BirthdayCollection,logoskirnel,CrayonsEmoji,FintopioBOT"
+PREMIUM_EMOJI_PACKS = _list("PREMIUM_EMOJI_PACKS") or (
+    [_env("PREMIUM_EMOJI_PACK")] if _env("PREMIUM_EMOJI_PACK") else _DEFAULT_PACKS.split(",")
+)
 
 
 def assert_config() -> None:

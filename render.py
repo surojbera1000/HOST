@@ -21,11 +21,31 @@ def main_menu(user: dict, is_admin: bool = False) -> tuple[str, dict]:
     rows = [
         [btn("\U0001F4F2  Buy WhatsApp number", "buy", "primary")],
         [btn("\U0001F4B0  Add money", "dep", "success"), btn("\U0001F9FE  My numbers", "ords")],
-        [btn("\U0001F504  Refresh", "mm"), url_btn("\U0001F4AC  Support", _support_url())],
+        [btn("\U0001F464  Profile", "pf"), url_btn("\U0001F4AC  Support", _support_url())],
+        [btn("\U0001F504  Refresh", "mm")],
     ]
     if is_admin:
         rows.append([btn("\U0001F6E0\uFE0F  Admin panel", "adm", "danger")])
     return text, kb(rows)
+
+
+def profile_view(user: dict, s: dict) -> tuple[str, dict]:
+    name = user.get("first_name") or (("@" + user["username"]) if user.get("username") else "Customer")
+    text = (
+        "\U0001F464 <b>Your profile</b>\n\n"
+        f"Name: <b>{esc(name)}</b>\n"
+        f"User ID: <code>{user['telegram_id']}</code>\n\n"
+        f"\U0001F4B0 Balance: <b>{inr(user['balance_paise'])}</b>\n"
+        f"\u2795 Money added: {inr(s['added_paise'])}\n"
+        f"\u2796 Money spent: {inr(s['spent_paise'])}\n\n"
+        f"\U0001F9FE Orders: <b>{s['orders_total']}</b>\n"
+        f"\u2705 Received: {s['orders_done']}\n"
+        f"\u21A9\uFE0F Cancelled: {s['orders_cancel']}"
+    )
+    return text, kb([
+        [btn("\U0001F4B0 Add money", "dep", "success"), btn("\U0001F9FE My numbers", "ords")],
+        [btn("\U0001F3E0 Menu", "mm")],
+    ])
 
 
 def order_view(o: dict, now_ms: int) -> tuple[str, dict]:

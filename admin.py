@@ -8,6 +8,7 @@ from flask import Flask, Response, jsonify, request
 import config
 import db
 import phoenix
+import stats
 from admin_html import ADMIN_HTML
 from payments import credit_payment
 from pricing import get_price_rules
@@ -81,7 +82,12 @@ def create_app() -> Flask:
             "today": {"orders": sales["n"], "salesPaise": sales["s"], "costPaise": round(sales["c"] * rate * 100), "topupPaise": topups["s"]},
             "grizzlyUsd": gusd,
             "grizzlyInrPaise": None if gusd is None else round(gusd * rate * 100),
-            "gmail": {"configured": config.gmail_configured(), "lastOk": int(db.get_state("gmail_last_ok") or 0) or None},
+            "allTime": stats.totals(),
+            "gmail": {
+                "configured": config.gmail_configured(),
+                "lastOk": int(db.get_state("gmail_last_ok") or 0) or None,
+                "status": db.get_state("gmail_status") or ("off" if not config.gmail_configured() else "unknown"),
+            },
         })
 
     @app.get("/api/settings")

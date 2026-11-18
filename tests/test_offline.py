@@ -228,6 +228,17 @@ assert bold["offset"] == 3 and bold["length"] == 3, f"bold: {bold}"
 premium._map = {}
 ok("premium emoji converter (bold + custom emoji offsets)")
 
+# 13. Stats totals + user stats
+import stats  # noqa: E402
+
+tot = stats.totals()
+assert set(tot) == {"orders_total", "orders_done", "orders_cancel", "deducted_paise", "added_paise"}
+assert tot["orders_done"] >= 1 and tot["orders_cancel"] >= 2, "WA lifecycle reflected in totals"
+assert tot["added_paise"] > 0, "deposits counted"
+us = stats.user_stats(wu["id"])
+assert us["orders_done"] >= 1 and us["spent_paise"] > 0, "user spent on the completed order"
+ok("stats totals + user profile numbers")
+
 print(f"\nAll {passed} test groups passed")
 for ext in ("", "-wal", "-shm"):
     try:

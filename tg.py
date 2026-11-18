@@ -48,21 +48,35 @@ def copy_btn(text: str, value: str) -> dict:
     return {"text": text, "copy_text": {"text": value}}
 
 
-def kb(rows: list[list[dict]]) -> dict:
-    return {"inline_keyboard": [r for r in rows if r]}
+def kb(rows: list[list[dict]]) -> Optional[dict]:
+    rows = [r for r in rows if r]
+    return {"inline_keyboard": rows} if rows else None
 
 
-# ---------- messages ----------
+def _safe(method: str, params: dict) -> Optional[object]:
+    """Call Telegram; treat 'not modified' as success; on a bad reply_markup, retry without it."""
+    try:
+        return call(method, params)
+    except TgError as e:
+        d = e.description.lower()
+        if "not modified" in d:
+            return None
+        if "reply markup" in d and params.get("reply_markup") is not None:
+            p2 = dict(params)
+            p2.pop("reply_markup", None)
+            return call(method, p2)
+        raise
+
 
 def send_message(chat_id: int, text: str, keyboard: Optional[dict] = None) -> dict:
     base = {"chat_id": chat_id, "link_preview_options": {"is_disabled": True}, "reply_markup": keyboard}
     conv = premium.convert(text) if premium.enabled() else None
     if conv:
         try:
-            return call("sendMessage", {**base, "text": conv[0], "entities": conv[1]})
+            return _safe("sendMessage", {**base, "text": conv[0], "entities": conv[1]})
         except TgError:
             pass  # fall back to HTML
-    return call("sendMessage", {**base, "text": text, "parse_mode": "HTML"})
+    return _safe("sendMessage", {**base, "text": text, "parse_mode": "HTML"})
 
 
 def edit_message(chat_id: int, message_id: int, text: str, keyboard: Optional[dict] = None) -> None:
@@ -70,30 +84,18 @@ def edit_message(chat_id: int, message_id: int, text: str, keyboard: Optional[di
     conv = premium.convert(text) if premium.enabled() else None
     if conv:
         try:
-            call("editMessageText", {**base, "text": conv[0], "entities": conv[1]})
+            _safe("editMessageText", {**base, "text": conv[0], "entities": conv[1]})
             return
-        except TgError as e:
-            if "not modified" in e.description.lower():
-                return
-            # fall through to HTML
-    try:
-        call("editMessageText", {**base, "text": text, "parse_mode": "HTML"})
-    except TgError as e:
-        if "not modified" in e.description.lower():
-            return
-        raise
+        except TgError:
+            pass  # fall through to HTML
+    _safe("editMessageText", {**base, "text": text, "parse_mode": "HTML"})
 
 
 def edit_caption(chat_id: int, message_id: int, caption: str, keyboard: Optional[dict] = None) -> None:
-    try:
-        call(
-            "editMessageCaption",
-            {"chat_id": chat_id, "message_id": message_id, "caption": caption, "parse_mode": "HTML", "reply_markup": keyboard},
-        )
-    except TgError as e:
-        if "not modified" in e.description.lower():
-            return
-        raise
+    _safe(
+        "editMessageCaption",
+        {"chat_id": chat_id, "message_id": message_id, "caption": caption, "parse_mode": "HTML", "reply_markup": keyboard},
+    )
 
 
 def send_photo(chat_id: int, photo: bytes, caption: str, keyboard: Optional[dict] = None) -> dict:

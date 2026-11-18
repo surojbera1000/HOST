@@ -6,7 +6,7 @@ import time
 import config
 import db
 from format_utils import inr
-from gmail_poll import poll_gmail
+from gmail_poll import GmailAuthError, poll_gmail
 from notify import notify_admins
 from orders import active_orders, check_order, get_order
 from payments import expire_old_payments
@@ -66,8 +66,24 @@ def _deposits_job() -> None:
                 pass
 
 
+_gmail_retry_at = 0.0
+
+
 def _gmail_job() -> None:
-    for paid in poll_gmail():
+    global _gmail_retry_at
+    if time.time() < _gmail_retry_at:
+        return
+    try:
+        credited = poll_gmail()
+    except GmailAuthError:
+        _gmail_retry_at = time.time() + 600  # back off 10 minutes
+        print(
+            "[worker:gmail] LOGIN FAILED — automatic deposits are paused. Fix GMAIL_APP_PASSWORD "
+            "(use a Google App Password, not your normal password) and enable IMAP in Gmail, then restart. "
+            "Retrying in 10 min."
+        )
+        return
+    for paid in credited:
         p = dict(db.one("SELECT * FROM payments WHERE id = ?", (paid["id"],)))
         if p.get("chat_id") and p.get("message_id"):
             try:

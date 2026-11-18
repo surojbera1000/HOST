@@ -12,6 +12,10 @@ from payments import credit_payment
 EMAIL_GRACE_MS = 2 * 60_000
 
 
+class GmailAuthError(Exception):
+    """Raised when Gmail rejects the login (wrong App Password / IMAP off)."""
+
+
 def _domain_of(addr: str) -> str:
     return addr.split("@")[1].lower() if "@" in addr else ""
 
@@ -181,7 +185,12 @@ def poll_gmail() -> list[dict]:
     credited: list[dict] = []
     imap = imaplib.IMAP4_SSL("imap.gmail.com", 993)
     try:
-        imap.login(config.GMAIL_USER, config.GMAIL_APP_PASSWORD)
+        try:
+            imap.login(config.GMAIL_USER, config.GMAIL_APP_PASSWORD)
+        except imaplib.IMAP4.error as e:
+            db.set_state("gmail_status", "auth_failed")
+            raise GmailAuthError(str(e))
+        db.set_state("gmail_status", "ok")
         imap.select("INBOX")
         last_uid = int(db.get_state("gmail_last_uid") or 0)
         if last_uid:
