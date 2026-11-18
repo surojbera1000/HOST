@@ -3,8 +3,8 @@ import json
 
 import config
 import db
+import orders as orders_mod
 from format_utils import countdown, esc, flag, inr
-from orders import CANCEL_AFTER_MS
 from tg import btn, copy_btn, kb, url_btn
 
 
@@ -19,7 +19,7 @@ def main_menu(user: dict) -> tuple[str, dict]:
         f"\U0001F4B0 <b>Balance:</b> {inr(user['balance_paise'])}"
     )
     return text, kb([
-        [btn("\U0001F4F1  Buy a number", "buy", "primary")],
+        [btn("\U0001F4F2  Buy WhatsApp number", "buy", "primary")],
         [btn("\U0001F4B0  Add money", "dep", "success"), btn("\U0001F9FE  My numbers", "ords")],
         [btn("\U0001F504  Refresh", "mm"), url_btn("\U0001F4AC  Support", _support_url())],
     ])
@@ -42,13 +42,13 @@ def order_view(o: dict, now_ms: int) -> tuple[str, dict]:
             text += "\n\nEarlier: " + ", ".join(f"<code>{esc(c)}</code>" for c in earlier)
         return text, kb([
             [copy_btn("\U0001F4CB Copy OTP", last), copy_btn("\U0001F4CB Copy number", number)],
-            [btn("\U0001F501 Get another OTP", f"rty:{o['id']}"), btn("\u2705 Done", f"don:{o['id']}", "success")],
+            [btn("\u2705 Done", f"don:{o['id']}", "success")],
             [btn("\U0001F3E0 Menu", "mm")],
         ])
 
     if o["status"] == "waiting":
         left = o["expires_at"] - now_ms
-        cancel_in = o["created_at"] + CANCEL_AFTER_MS - now_ms
+        cancel_in = o["created_at"] + orders_mod.cancel_after_ms() - now_ms
         cancel_row = (
             [btn(f"\U0001F6AB Cancel in {countdown(cancel_in)}", "noop")]
             if cancel_in > 0

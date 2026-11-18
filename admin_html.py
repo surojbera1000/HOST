@@ -86,7 +86,7 @@ async function Dashboard(){
   const o = await F('/api/overview');
   const profit = o.today.salesPaise - o.today.costPaise;
   let warn='';
-  if(o.grizzlyInrPaise!==null && o.grizzlyInrPaise < o.walletTotalPaise) warn+='<div class="warn">\u26A0\uFE0F GrizzlySMS balance is lower than customers\' total wallet. Top it up so orders don\'t fail.</div>';
+  if(o.grizzlyInrPaise!==null && o.grizzlyInrPaise < o.walletTotalPaise) warn+='<div class="warn">\u26A0\uFE0F Phoenix balance is lower than customers\' total wallet. Top it up so orders don\'t fail.</div>';
   if(!o.gmail.configured) warn+='<div class="warn">\u26A0\uFE0F Gmail not configured \u2014 automatic deposits are OFF. Set GMAIL_USER / GMAIL_APP_PASSWORD.</div>';
   el('view').innerHTML = warn +
     '<div class="grid">'+
@@ -94,7 +94,7 @@ async function Dashboard(){
     stat('Profit today', inr(profit), 'cost '+inr(o.today.costPaise))+
     stat('Deposits today', inr(o.today.topupPaise))+
     stat('Users', o.users, 'wallets '+inr(o.walletTotalPaise))+
-    stat('GrizzlySMS', o.grizzlyUsd===null?'\u2014':'$'+o.grizzlyUsd.toFixed(2), o.grizzlyInrPaise===null?'':'\u2248 '+inr(o.grizzlyInrPaise))+
+    stat('Phoenix', o.grizzlyUsd===null?'\u2014':'$'+o.grizzlyUsd.toFixed(2), o.grizzlyInrPaise===null?'':'\u2248 '+inr(o.grizzlyInrPaise))+
     stat('Gmail auto deposit', o.gmail.configured?'On':'Off', o.gmail.lastOk?('last '+dt(o.gmail.lastOk)):'')+
     '</div>';
 }
@@ -138,7 +138,7 @@ async function Pricing(){
   const rows=rules.map(r=>'<tr><td>'+esc(r.service)+'</td><td>'+esc(r.country)+'</td><td>'+r.mode+(r.mode==='default'?'':' '+r.value)+'</td><td>'+(r.hidden?'Yes':'No')+'</td><td><button class="act d" onclick="delRule('+r.id+')">Delete</button></td></tr>').join('');
   el('view').innerHTML=
     '<div class="card"><h3>Add / update rule</h3>'+
-    '<div class="muted">Default selling price = GrizzlySMS cost \u00d7 USD\u2192INR rate (Settings). A rule overrides it for one service (all countries with <b>*</b>, or one country code). WhatsApp has a default <b>Plus \u20b940</b> rule.</div>'+
+    '<div class="muted">Default selling price = Phoenix cost \u00d7 USD\u2192INR rate (Settings). A rule overrides it for one service (all countries with <b>*</b>, or one country code). WhatsApp has a default <b>Plus \u20b940</b> rule.</div>'+
     '<div class="row" style="margin-top:10px">'+
     '<div style="flex:2"><label>Service</label><input id="rsvc" list="svclist" placeholder="wa  (or * for all)"><datalist id="svclist">'+svcList+'</datalist></div>'+
     '<div style="flex:1"><label>Country code</label><input id="rctry" value="*" placeholder="* or 22"></div>'+

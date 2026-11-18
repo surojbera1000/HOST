@@ -1,24 +1,22 @@
-"""Telegram update handling: menu, buy flow, deposits, orders."""
+"""Telegram update handling: menu, WhatsApp buy flow, deposits, orders."""
 import json
 import threading
 import time
 
 import catalog
-import config
 import db
-import grizzly
 import orders as orders_mod
 import payments as pay
+import phoenix
 import tg
 import users
-from format_utils import esc, flag, inr
+from format_utils import esc, inr
 from notify import notify_admins
 from render import deposit_caption, deposit_keyboard, main_menu, order_view
 
-# Simple per-user session for free-text input (search / custom amount).
+# Per-user session for free-text input (custom deposit amount).
 _sessions: dict[int, tuple[str, float]] = {}
 _slock = threading.Lock()
-COUNTRIES_PER_PAGE = 8
 
 
 def _set_session(tid: int, mode: str) -> None:
@@ -69,11 +67,7 @@ def _on_message(msg: dict) -> None:
         _send_admin_stats(chat_id)
         return
 
-    mode = _take_session(frm["id"])
-    if mode == "search":
-        _show_service_search(chat_id, text)
-        return
-    if mode == "amount":
+    if _take_session(frm["id"]) == "amount":
         digits = "".join(c for c in text if c.isdigit())
         _start_deposit(user, chat_id, int(digits) if digits else 0)
         return
@@ -117,24 +111,11 @@ def _on_callback(cq: dict) -> None:
             edit(t, k)
             ack()
         elif cmd == "buy":
-            _show_services(edit)
-            ack()
-        elif cmd == "ss":
-            _set_session(frm["id"], "search")
-            edit("\U0001F50D <b>Search app</b>\n\nSend me the app name (for example: <i>WhatsApp</i>, <i>Telegram</i>, <i>Instagram</i>).")
-            ack()
-        elif cmd == "sv":
-            _show_countries(edit, args[0], 0)
-            ack()
-        elif cmd == "ct":
-            _show_countries(edit, args[0], int(args[1]))
-            ack()
-        elif cmd == "cf":
-            _show_confirm(edit, user, args[0], args[1])
+            _show_wa_confirm(edit, user)
             ack()
         elif cmd == "bx":
             ack("Getting your number\u2026")
-            _do_buy(frm, chat_id, message_id, args[0], args[1])
+            _do_buy(frm, chat_id, message_id)
         elif cmd == "dep":
             _show_deposit_menu(edit)
             ack()
@@ -162,8 +143,6 @@ def _on_callback(cq: dict) -> None:
             _check_now(chat_id, message_id, user, int(args[0]), ack)
         elif cmd == "ccl":
             _do_cancel(chat_id, message_id, user, int(args[0]), ack)
-        elif cmd == "rty":
-            _do_retry(user, int(args[0]), ack)
         elif cmd == "don":
             _do_done(chat_id, message_id, user, int(args[0]), ack)
         else:
@@ -175,90 +154,41 @@ def _on_callback(cq: dict) -> None:
         ack("Something went wrong. Try again.", True)
 
 
-# ---------- buy flow ----------
+# ---------- WhatsApp buy flow ----------
 
-def _show_services(edit) -> None:
-    services = catalog.popular_services()
-    rows = []
-    for i in range(0, len(services), 2):
-        rows.append([tg.btn(_clip(s["name"]), f"sv:{s['code']}") for s in services[i:i + 2]])
-    rows.append([tg.btn("\U0001F50D Search other app", "ss", "primary")])
-    rows.append([tg.btn("\U0001F3E0 Menu", "mm")])
-    edit("\U0001F4F1 <b>Choose an app</b>\n\nPick the app you want a number for:", tg.kb(rows))
-
-
-def _show_service_search(chat_id: int, query: str) -> None:
-    found = catalog.search_services(query)
-    if not found:
-        tg.send_message(chat_id, f"No app found for \u201c{esc(query)}\u201d. Try another name.",
-                        tg.kb([[tg.btn("\U0001F50D Search again", "ss"), tg.btn("\U0001F3E0 Menu", "mm")]]))
-        return
-    rows = []
-    for i in range(0, len(found), 2):
-        rows.append([tg.btn(_clip(s["name"]), f"sv:{s['code']}") for s in found[i:i + 2]])
-    rows.append([tg.btn("\U0001F3E0 Menu", "mm")])
-    tg.send_message(chat_id, f"\U0001F50D Results for \u201c{esc(query)}\u201d:", tg.kb(rows))
-
-
-def _show_countries(edit, service: str, page: int) -> None:
-    services = catalog.popular_services()
-    name = catalog.service_name(services, service)
+def _show_wa_confirm(edit, user) -> None:
     try:
-        lst = catalog.country_options(service)
+        opt = catalog.india_option()
     except Exception:  # noqa: BLE001
-        edit("Could not load prices. Please try again.", tg.kb([[tg.btn("\U0001F504 Retry", f"sv:{service}"), tg.btn("\U0001F3E0 Menu", "mm")]]))
+        edit("Could not load the price. Please try again.", tg.kb([[tg.btn("\U0001F504 Retry", "buy"), tg.btn("\U0001F3E0 Menu", "mm")]]))
         return
-    if not lst:
-        edit(f"No numbers available for <b>{esc(name)}</b> right now.", tg.kb([[tg.btn("\u2B05\uFE0F Back", "buy"), tg.btn("\U0001F3E0 Menu", "mm")]]))
+    if not opt:
+        edit("\U0001F6AB No WhatsApp numbers available right now. Please try again shortly.",
+             tg.kb([[tg.btn("\U0001F504 Retry", "buy"), tg.btn("\U0001F3E0 Menu", "mm")]]))
         return
-    pages = (len(lst) + COUNTRIES_PER_PAGE - 1) // COUNTRIES_PER_PAGE
-    p = max(0, min(page, pages - 1))
-    rows = []
-    for c in lst[p * COUNTRIES_PER_PAGE:(p + 1) * COUNTRIES_PER_PAGE]:
-        cnt = f"{c['count'] // 1000}k" if c["count"] > 999 else str(c["count"])
-        rows.append([tg.btn(f"{flag(c['name'])} {c['name']} \u00b7 {inr(c['price_paise'])} \u00b7 {cnt}", f"cf:{service}:{c['country']}")])
-    nav = []
-    if p > 0:
-        nav.append(tg.btn("\u2B05\uFE0F Prev", f"ct:{service}:{p - 1}"))
-    if p < pages - 1:
-        nav.append(tg.btn("Next \u27A1\uFE0F", f"ct:{service}:{p + 1}"))
-    if nav:
-        rows.append(nav)
-    rows.append([tg.btn("\u2B05\uFE0F Apps", "buy"), tg.btn("\U0001F3E0 Menu", "mm")])
-    edit(f"<b>{esc(name)}</b> \u2014 choose a country\n<i>Cheapest first \u00b7 page {p + 1}/{pages}</i>", tg.kb(rows))
-
-
-def _show_confirm(edit, user, service, country) -> None:
-    lst = catalog.country_options(service)
-    c = next((x for x in lst if x["country"] == country), None)
-    name = catalog.service_name(catalog.popular_services(), service)
-    if not c:
-        edit("That option is gone. Please pick again.", tg.kb([[tg.btn("\u2B05\uFE0F Back", f"sv:{service}"), tg.btn("\U0001F3E0 Menu", "mm")]]))
-        return
-    enough = user["balance_paise"] >= c["price_paise"]
+    enough = user["balance_paise"] >= opt["price_paise"]
     text = (
-        "\U0001F9FE <b>Confirm purchase</b>\n\n"
-        f"App: <b>{esc(name)}</b>\n"
-        f"Country: {flag(c['name'])} <b>{esc(c['name'])}</b>\n"
-        f"Price: <b>{inr(c['price_paise'])}</b>\n"
+        "\U0001F4F2 <b>WhatsApp number — India \U0001F1EE\U0001F1F3</b>\n\n"
+        f"Price: <b>{inr(opt['price_paise'])}</b>\n"
+        f"In stock: {opt['count']}\n"
         f"Your balance: {inr(user['balance_paise'])}\n\n"
-        + ("\u2705 If no OTP comes, you can cancel and get a refund." if enough else "\u274C Not enough balance. Add money first.")
+        + ("\u2705 Buy, then request the OTP in WhatsApp. No OTP in time = full refund."
+           if enough else "\u274C Not enough balance. Add money first.")
     )
     if enough:
-        rows = [[tg.btn(f"\u2705 Buy for {inr(c['price_paise'])}", f"bx:{service}:{country}", "success")],
-                [tg.btn("\u2B05\uFE0F Back", f"sv:{service}"), tg.btn("\U0001F3E0 Menu", "mm")]]
+        rows = [[tg.btn(f"\u2705 Buy for {inr(opt['price_paise'])}", "bx", "success")],
+                [tg.btn("\U0001F3E0 Menu", "mm")]]
     else:
-        rows = [[tg.btn("\U0001F4B0 Add money", "dep", "success")],
-                [tg.btn("\u2B05\uFE0F Back", f"sv:{service}"), tg.btn("\U0001F3E0 Menu", "mm")]]
+        rows = [[tg.btn("\U0001F4B0 Add money", "dep", "success")], [tg.btn("\U0001F3E0 Menu", "mm")]]
     edit(text, tg.kb(rows))
 
 
-def _do_buy(frm, chat_id, message_id, service, country) -> None:
+def _do_buy(frm, chat_id, message_id) -> None:
     user = users.user_by_telegram_id(frm["id"])
     try:
-        order = orders_mod.buy_number(user["id"], service, country)
+        order = orders_mod.buy_whatsapp(user["id"])
     except orders_mod.OrderError as e:
-        tg.edit_message(chat_id, message_id, f"\u274C {esc(str(e))}", tg.kb([[tg.btn("\u2B05\uFE0F Back", f"sv:{service}"), tg.btn("\U0001F3E0 Menu", "mm")]]))
+        tg.edit_message(chat_id, message_id, f"\u274C {esc(str(e))}", tg.kb([[tg.btn("\U0001F504 Retry", "buy"), tg.btn("\U0001F3E0 Menu", "mm")]]))
         return
     orders_mod.set_order_message(order["id"], chat_id, message_id)
     t, k = order_view(order, db.now())
@@ -270,13 +200,14 @@ def _do_buy(frm, chat_id, message_id, service, country) -> None:
 def _show_orders(edit, user) -> None:
     rows = db.q("SELECT * FROM orders WHERE user_id = ? AND status != 'buying' ORDER BY id DESC LIMIT 10", (user["id"],))
     if not rows:
-        edit("\U0001F9FE You have no numbers yet.", tg.kb([[tg.btn("\U0001F4F1 Buy a number", "buy", "primary"), tg.btn("\U0001F3E0 Menu", "mm")]]))
+        edit("\U0001F9FE You have no numbers yet.", tg.kb([[tg.btn("\U0001F4F2 Buy WhatsApp number", "buy", "primary"), tg.btn("\U0001F3E0 Menu", "mm")]]))
         return
     buttons = []
     for r in rows:
         o = dict(r)
         tag = {"received": "\U0001F525 OTP", "waiting": "\u23F3 waiting", "completed": "\u2705"}.get(o["status"], "\u21A9\uFE0F")
-        buttons.append([tg.btn(f"{flag(o['country_name'])} {o['service_name']} \u00b7 {tag}", f"op:{o['id']}")])
+        num = f"+{o['phone']}" if o["phone"] else o["service_name"]
+        buttons.append([tg.btn(f"\U0001F4F2 {num} \u00b7 {tag}", f"op:{o['id']}")])
     buttons.append([tg.btn("\U0001F3E0 Menu", "mm")])
     edit("\U0001F9FE <b>My numbers</b>\n\nTap one to open:", tg.kb(buttons))
 
@@ -328,18 +259,6 @@ def _do_cancel(chat_id, message_id, user, order_id, ack) -> None:
         tg.edit_message(chat_id, message_id, t, k)
 
 
-def _do_retry(user, order_id, ack) -> None:
-    o = orders_mod.get_order(order_id)
-    if not o or not orders_mod.order_belongs_to(o, user["id"]):
-        ack("Order not found.", True)
-        return
-    try:
-        orders_mod.request_another_sms(o)
-        ack("Asked for another OTP. Wait a moment.")
-    except orders_mod.OrderError as e:
-        ack(str(e), True)
-
-
 def _do_done(chat_id, message_id, user, order_id, ack) -> None:
     o = orders_mod.get_order(order_id)
     if not o or not orders_mod.order_belongs_to(o, user["id"]):
@@ -384,7 +303,7 @@ def _send_admin_stats(chat_id) -> None:
     sales = db.one("SELECT COUNT(*) n, COALESCE(SUM(price_paise),0) s FROM orders WHERE status IN ('received','completed') AND created_at >= ?", (start,))
     topups = db.one("SELECT COALESCE(SUM(amount_paise),0) s FROM payments WHERE status = 'paid' AND paid_at >= ?", (start,))
     try:
-        bal = f"${grizzly.get_balance_usd():.2f}"
+        bal = f"${phoenix.get_balance_usd():.2f}"
     except Exception:  # noqa: BLE001
         bal = "unavailable"
     tg.send_message(
@@ -393,10 +312,6 @@ def _send_admin_stats(chat_id) -> None:
         f"Users: {users_n}\n"
         f"Numbers sold: {sales['n']} ({inr(sales['s'])})\n"
         f"Deposits: {inr(topups['s'])}\n"
-        f"GrizzlySMS balance: {bal}\n\n"
+        f"Phoenix balance: {bal}\n\n"
         "Full controls: open the web admin panel.",
     )
-
-
-def _clip(name: str) -> str:
-    return name if len(name) <= 20 else name[:19] + "\u2026"

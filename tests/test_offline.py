@@ -9,10 +9,12 @@ sys.path.insert(0, ROOT)
 
 DB_PATH = os.path.join(tempfile.gettempdir(), f"miku-bot-test-{int(time.time()*1000)}.sqlite")
 os.environ["DATABASE_PATH"] = DB_PATH
-os.environ["GRIZZLY_API_KEY"] = "test"
+os.environ["PHOENIX_API_KEY"] = "phx_test"
 os.environ["TELEGRAM_BOT_TOKEN"] = "test:token"
 os.environ["ADMIN_PANEL_PASSWORD"] = "x"
 os.environ["FAMPAY_SENDER_DOMAINS"] = "famapp.in"
+
+import json  # noqa: E402
 
 import db  # noqa: E402
 import tg  # noqa: E402
@@ -120,6 +122,63 @@ blob = str(sent[-1]["kb"])
 assert "primary" in blob and "success" in blob, "coloured buttons present"
 assert "buy" in blob and "dep" in blob, "buy + deposit buttons present"
 ok("bot /start shows coloured menu")
+
+# 7. WhatsApp order lifecycle (Phoenix stubbed)
+import phoenix  # noqa: E402
+import orders as omod  # noqa: E402
+
+phoenix.wa_india = lambda fresh=False: {"count": 1540, "price": 0.1821}
+phoenix.cancel_lock_seconds = lambda: 0  # allow immediate cancel in the test
+_fake = {"codes": [], "status": "wa_pending"}
+_refs = {"n": 0}
+
+
+def _fake_buy():
+    _refs["n"] += 1
+    return {"order_ref": f"REF{_refs['n']:04d}", "phone": "919876543210", "price_usd": 0.1821, "expires_in_seconds": 1200, "status": "wa_pending"}
+
+
+phoenix.wa_buy = _fake_buy
+phoenix.wa_code = lambda ref: dict(_fake)
+phoenix.wa_cancel = lambda ref: {"status": "refunded"}
+
+wu = get_or_create_user({"id": 444, "first_name": "Wa"})[0]
+# price = 0.1821*100*100 paise + ₹40 margin = ceil(1821)+... actually plus mode: cost*rate + 40
+exp_price = __import__("math").ceil((0.1821 * 100 + 40) * 100)
+with db.tx() as c:
+    apply_balance(c, wu["id"], 30000, "admin", None, "load")
+order = omod.buy_whatsapp(wu["id"])
+assert order["status"] == "waiting" and order["phone"] == "919876543210", "WA buy -> waiting with number"
+assert order["price_paise"] == exp_price, f"WA price = cost*rate + ₹40 ({order['price_paise']} vs {exp_price})"
+assert bal(wu["id"]) == 30000 - exp_price, "wallet charged my price"
+# no OTP yet
+assert omod.check_order(omod.get_order(order["id"]), 0) is None
+# OTP arrives
+_fake["codes"] = ["123456"]
+_fake["status"] = "delivered"
+assert omod.check_order(omod.get_order(order["id"]), 0) == "code"
+assert json.loads(omod.get_order(order["id"])["codes"])[-1] == "123456", "OTP stored"
+omod.finish_order(omod.get_order(order["id"]))
+assert omod.get_order(order["id"])["status"] == "completed"
+ok("WhatsApp buy -> waiting -> OTP -> done")
+
+# refund on timeout
+_fake["codes"] = []
+_fake["status"] = "wa_pending"
+o2 = omod.buy_whatsapp(wu["id"])
+db.execute("UPDATE orders SET expires_at = ? WHERE id = ?", (db.now() - 60_000, o2["id"]))
+assert omod.check_order(omod.get_order(o2["id"]), 0) == "closed"
+assert omod.get_order(o2["id"])["status"] == "cancelled", "timed-out order cancelled"
+assert bal(wu["id"]) == 30000 - exp_price, "refunded on timeout"
+ok("WhatsApp auto-refund on timeout")
+
+# cancel + refund
+_fake["status"] = "wa_pending"
+o3 = omod.buy_whatsapp(wu["id"])
+omod.cancel_order(omod.get_order(o3["id"]))
+assert omod.get_order(o3["id"])["status"] == "cancelled"
+assert bal(wu["id"]) == 30000 - exp_price, "refunded on cancel"
+ok("WhatsApp cancel + refund")
 
 print(f"\nAll {passed} test groups passed")
 for ext in ("", "-wal", "-shm"):

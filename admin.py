@@ -7,7 +7,7 @@ from flask import Flask, Response, jsonify, request
 
 import config
 import db
-import grizzly
+import phoenix
 from admin_html import ADMIN_HTML
 from payments import credit_payment
 from pricing import get_price_rules
@@ -72,7 +72,7 @@ def create_app() -> Flask:
         topups = db.one("SELECT COALESCE(SUM(amount_paise),0) s FROM payments WHERE status = 'paid' AND paid_at >= ?", (start,))
         rate = db.get_setting_number("usd_inr_rate")
         try:
-            gusd = grizzly.get_balance_usd()
+            gusd = phoenix.get_balance_usd()
         except Exception:  # noqa: BLE001
             gusd = None
         return jsonify({
@@ -107,10 +107,8 @@ def create_app() -> Flask:
         g = guard()
         if g:
             return g
-        try:
-            return jsonify({"services": grizzly.get_services()})
-        except Exception:  # noqa: BLE001
-            return jsonify({"services": []})
+        # WhatsApp-only build.
+        return jsonify({"services": [{"code": "wa", "name": "WhatsApp"}]})
 
     @app.get("/api/rules")
     def rules():

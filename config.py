@@ -15,8 +15,9 @@ def _list(name: str) -> list[str]:
 
 
 BOT_TOKEN = _env("TELEGRAM_BOT_TOKEN")
-GRIZZLY_API_KEY = _env("GRIZZLY_API_KEY")
-GRIZZLY_BASE_URL = _env("GRIZZLY_BASE_URL", "https://api.grizzlysms.com/stubs/handler_api.php")
+# Phoenix Store reseller API (WhatsApp number rental).
+PHOENIX_API_KEY = _env("PHOENIX_API_KEY")
+PHOENIX_BASE_URL = _env("PHOENIX_BASE_URL", "http://phoenixstoreapi.duckdns.org:2557").rstrip("/")
 DATABASE_PATH = _env("DATABASE_PATH", "./data/bot.sqlite")
 
 # Telegram numeric user IDs that are admins (get notifications + /admin in the bot).
@@ -41,8 +42,8 @@ def assert_config() -> None:
     missing = []
     if not BOT_TOKEN:
         missing.append("TELEGRAM_BOT_TOKEN")
-    if not GRIZZLY_API_KEY:
-        missing.append("GRIZZLY_API_KEY")
+    if not PHOENIX_API_KEY:
+        missing.append("PHOENIX_API_KEY")
     if not ADMIN_PANEL_PASSWORD:
         missing.append("ADMIN_PANEL_PASSWORD")
     if missing:

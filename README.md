@@ -1,28 +1,37 @@
-# Miku OTP — Telegram Bot (Python)
+# Miku OTP — WhatsApp Bot (Python)
 
-A Telegram bot that sells phone numbers for OTP/SMS verification. Numbers come from the
-[GrizzlySMS API](https://grizzlysms.com). Customers pay by UPI, and their wallet is credited
-**automatically** when the FamApp payment email arrives in Gmail. Runs on a VPS.
+A Telegram bot that rents **WhatsApp numbers (India)** for OTP verification, using the
+[Phoenix Store Reseller API](http://phoenixstoreapi.duckdns.org:2557). Customers pay by UPI, and
+their wallet is credited **automatically** when the FamApp payment email arrives in Gmail.
+Runs on a VPS with `python3 bot.py`.
 
 ## What it does
 
 - **Colourful inline-button UI** (Telegram Bot API 9.4 button styles — blue/green/red).
-- **Buy a number:** pick an app → pick a country (cheapest first, with flags and live prices) → confirm → get the number. The **OTP appears in the same message** by itself, with **copy buttons** for the number and the OTP. Cancel for a full refund if no OTP arrives.
-- **Automatic deposits:** customer taps an amount, the bot shows a UPI **QR with a timer**. When the matching FamApp email reaches Gmail, the wallet is credited and the bot replies "₹X added" — no manual step.
-- **Default ₹40 WhatsApp margin:** every WhatsApp number is priced at *cost + ₹40* by default. The admin can change or remove it.
-- **Web admin panel** (password-protected): dashboard (sales, profit, GrizzlySMS balance, Gmail status), pricing rules, deposits (auto-matched + manual approve), orders, users (adjust balance, block), settings.
+- **Buy a WhatsApp number (India):** tap Buy → confirm the price → get the number. The customer
+  requests the OTP in WhatsApp; the **OTP appears in the same message** with copy buttons for the
+  number and the code. Cancel for a full refund (after the provider's short lock) if no OTP arrives;
+  the order also auto-refunds on timeout.
+- **Automatic deposits:** customer taps an amount, the bot shows a UPI **QR with a timer**. When the
+  matching FamApp email reaches Gmail, the wallet is credited and the bot replies "₹X added".
+- **Default ₹40 margin** on every WhatsApp number (admin can change or remove it).
+- **Web admin panel** (password-protected): dashboard (sales, profit, Phoenix balance, Gmail status),
+  pricing rules, deposits (auto-matched + manual approve), orders, users, settings.
 
 ## Pricing
 
-Selling price = GrizzlySMS cost (USD) × **USD→INR rate** (default ₹100), then a rule may apply.
-Rule modes: `default`, `plus ₹` (add a flat amount — this is the WhatsApp ₹40), `markup %`, `fixed ₹`.
-The bot buys with the cost as `maxPrice`, so you never pay more than the price shown.
+Selling price = Phoenix price (USD) × **USD→INR rate** (default ₹100), then a rule applies. The
+default rule is **Plus ₹40** on WhatsApp (`wa`). Other modes: `default`, `markup %`, `fixed ₹`.
+The Phoenix price already includes the supplier's markup; your ₹40 is your profit on top.
+
+> Phoenix allows **one pending WhatsApp order per key at a time**, so the bot processes purchases
+> one at a time. WhatsApp rental is **India only** (`country_id 22`).
 
 ## Tech
 
-Python 3.10+, `requests` (Telegram + GrizzlySMS over long-polling, no public webhook needed),
-stdlib `sqlite3` (single-file DB) + `imaplib`/`email` for Gmail, `qrcode`+Pillow for QR codes,
-and Flask for the admin panel. Background work runs in threads.
+Python 3.10+, `requests` (Phoenix API + Telegram long-polling, no public webhook needed),
+stdlib `sqlite3` + `imaplib`/`email` for Gmail, `qrcode`+Pillow for QR codes, Flask for the admin
+panel. Background work runs in threads.
 
 ## Run on a VPS (Ubuntu)
 
@@ -37,7 +46,6 @@ python3 -m venv .venv
 cp .env.example .env
 nano .env            # fill in the values (below)
 
-# Start it
 .venv/bin/python bot.py
 ```
 
@@ -46,7 +54,7 @@ nano .env            # fill in the values (below)
 ```bash
 sudo tee /etc/systemd/system/miku-bot.service >/dev/null <<EOF
 [Unit]
-Description=Miku OTP Telegram bot
+Description=Miku OTP WhatsApp bot
 After=network.target
 
 [Service]
@@ -61,17 +69,15 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now miku-bot
-sudo journalctl -u miku-bot -f     # watch the logs
+sudo journalctl -u miku-bot -f
 ```
-
-(Or simply `nohup .venv/bin/python bot.py &` for a quick start.)
 
 ### `.env` values
 
 | Variable | What |
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather) → `/newbot` |
-| `GRIZZLY_API_KEY` | grizzlysms.com → Settings |
+| `PHOENIX_API_KEY` | Phoenix Store bot → Reseller Api → Request Api (starts with `phx_`). Keep it secret |
 | `ADMIN_TELEGRAM_IDS` | Your Telegram numeric ID (from @userinfobot). Gets notifications + `/admin` |
 | `ADMIN_PANEL_PASSWORD` | Password for the web admin panel |
 | `ADMIN_PANEL_PORT` | Default 8080 — open `http://SERVER_IP:8080` |
@@ -90,13 +96,13 @@ front (e.g. Caddy: `admin.yourdomain.com { reverse_proxy localhost:8080 }`).
 ## Tests
 
 ```bash
-.venv/bin/python tests/test_offline.py   # pricing (incl. ₹40 WhatsApp), auto deposits, wallet, bot /start
+.venv/bin/python tests/test_offline.py   # pricing (₹40), auto deposits, wallet, bot /start, WhatsApp order lifecycle
 ```
 
 ## Notes
 
 - Keep **one** instance running: the long-polling loop and SQLite expect a single process.
-- Top up your GrizzlySMS balance, otherwise buying fails. The admin dashboard warns when it is low.
+- Keep your Phoenix wallet topped up, otherwise buying fails. The admin dashboard warns when it is low.
 - FamApp emails have no note, so each open deposit gets a **unique amount** (e.g. ₹100.37); the exact
-  amount identifies the payment. A Transaction ID is never credited twice, and only DKIM-verified emails
-  from `famapp.in` are trusted.
+  amount identifies the payment. A Transaction ID is never credited twice, and only DKIM-verified
+  emails from `famapp.in` are trusted.
