@@ -136,10 +136,10 @@ async function Users(){
 async function loadUsers(){
   const q=encodeURIComponent((el('uq')&&el('uq').value)||'');
   const {users}=await F('/api/users?q='+q);
-  const rows=users.map(u=>'<tr><td>'+u.id+'</td><td>'+(u.username?('@'+esc(u.username)):'')+'<div class=muted>'+esc(u.first_name||'')+' \u00b7 '+u.telegram_id+'</div></td><td><b>'+inr(u.balance_paise)+'</b></td><td>'+inr(u.topup_paise)+'</td><td>'+u.orders+'</td><td>'+(u.blocked?'<span class="badge b-other">blocked</span>':'')+'</td><td><button class="act g" onclick="adjust('+u.id+')">\u00b1 Balance</button> <button class="act d" onclick="block('+u.id+','+(u.blocked?0:1)+')">'+(u.blocked?'Unblock':'Block')+'</button></td></tr>').join('');
-  el('ut').innerHTML='<table><tr><th>#</th><th>User</th><th>Balance</th><th>Topups</th><th>Nums</th><th></th><th></th></tr>'+(rows||'<tr><td colspan=7 class=muted>None</td></tr>')+'</table>';
+  const rows=users.map(u=>'<tr><td>'+u.id+'</td><td>'+(u.username?('@'+esc(u.username)):'')+'<div class=muted>'+esc(u.first_name||'')+' \u00b7 '+u.telegram_id+'</div></td><td><b>'+inr(u.balance_paise)+'</b></td><td>'+inr(u.topup_paise)+'</td><td>'+u.orders+'</td><td><input id="amt'+u.id+'" type="number" placeholder="\u20b9" style="width:62px"> <button class="act p" onclick="money('+u.id+',1)">\u2795 Add</button> <button class="act d" onclick="money('+u.id+',-1)">\u2796 Deduct</button> <button class="act g" onclick="block('+u.id+','+(u.blocked?0:1)+')">'+(u.blocked?'Unblock':'Block')+'</button></td></tr>').join('');
+  el('ut').innerHTML='<table><tr><th>#</th><th>User</th><th>Balance</th><th>Topups</th><th>Nums</th><th>Add / Deduct money</th></tr>'+(rows||'<tr><td colspan=6 class=muted>None</td></tr>')+'</table>';
 }
-async function adjust(id){ const v=prompt('Change balance by \u20b9 (minus to deduct, e.g. -20):'); if(!v)return; const note=prompt('Reason (shown to user):')||''; try{ await F('/api/users/'+id+'/balance',{method:'POST',body:JSON.stringify({amount:Number(v),note})}); loadUsers(); }catch(e){ alert(e.message);} }
+async function money(id,sign){ const box=el('amt'+id); const v=Number(box&&box.value); if(!v||v<=0){ alert('Enter an amount in \u20b9'); return; } const note=prompt((sign>0?'Add':'Deduct')+' \u20b9'+v+' \u2014 note (shown to the user), optional:')||''; try{ await F('/api/users/'+id+'/balance',{method:'POST',body:JSON.stringify({amount:v*sign,note})}); loadUsers(); }catch(e){ alert(e.message);} }
 async function block(id,b){ await F('/api/users/'+id+'/block',{method:'POST',body:JSON.stringify({blocked:b})}); loadUsers(); }
 
 async function Pricing(){

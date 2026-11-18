@@ -77,6 +77,9 @@ def _on_message(msg: dict) -> None:
     if sess and sess.startswith("utr:"):
         _submit_transaction_id(user, chat_id, int(sess.split(":")[1]), text)
         return
+    if sess == "admpay" and users.is_admin(frm["id"]):
+        _admin_adjust_balance(chat_id, text)
+        return
 
     t, k = main_menu(user, users.is_admin(frm["id"]))
     tg.send_message(chat_id, t, k)
@@ -120,7 +123,7 @@ def _on_callback(cq: dict) -> None:
             if not users.is_admin(frm["id"]):
                 ack("Admin only.", True)
             else:
-                _admin(edit, ack, args)
+                _admin(edit, ack, args, frm["id"])
         elif cmd == "dpid":
             _set_session(frm["id"], f"utr:{args[0]}")
             tg.send_message(chat_id, "\U0001F9FE Send me the <b>Transaction ID</b> from your payment app "
@@ -335,15 +338,29 @@ def _start_deposit(user, chat_id, rupees) -> None:
 
 # ---------- in-bot admin panel ----------
 
-def _admin(edit, ack, args) -> None:
+def _admin(edit, ack, args, tid) -> None:
     sub = args[0] if args else "menu"
     if sub == "menu":
         edit("\U0001F6E0\uFE0F <b>Admin panel</b>\n\nChoose an action:", tg.kb([
             [tg.btn("\U0001F4CA Stats", "adm:stats", "primary")],
             [tg.btn("\U0001F4B0 Pending deposits", "adm:dep", "success")],
+            [tg.btn("\U0001F4B5 Add / Deduct money", "adm:pay", "success")],
             [tg.btn("\U0001F9FE Recent orders", "adm:ord")],
             [tg.btn("\U0001F3E0 Menu", "mm")],
         ]))
+        ack()
+    elif sub == "pay":
+        _set_session(tid, "admpay")
+        edit(
+            "\U0001F4B5 <b>Add / Deduct money</b>\n\n"
+            "Send: <code>&lt;user_id&gt; &lt;amount&gt;</code>\n"
+            "Use a minus sign to deduct.\n\n"
+            "Examples:\n"
+            "<code>8859966636 50</code> \u2192 add \u20b950\n"
+            "<code>8859966636 -20</code> \u2192 deduct \u20b920\n\n"
+            "Find the user_id in the Users list or their Profile.",
+            tg.kb([[tg.btn("\u2B05\uFE0F Back", "adm")]]),
+        )
         ack()
     elif sub == "stats":
         edit(_stats_text(), tg.kb([[tg.btn("\u2B05\uFE0F Back", "adm")]]))
@@ -364,6 +381,57 @@ def _admin(edit, ack, args) -> None:
         _admin_deposits(edit)
     else:
         ack()
+
+
+def adjust_user_balance(target_user: dict, rupees: float, note: str) -> bool:
+    """Admin add (+) / deduct (-) money. Notifies the user. Returns False if it would go below ₹0."""
+    paise = round(rupees * 100)
+    if paise == 0:
+        return True
+    from wallet import apply_balance
+
+    with db.tx() as c:
+        ok = apply_balance(c, target_user["id"], int(paise), "admin", "admin", note or "Admin adjustment")
+    if ok:
+        try:
+            verb = "added to" if paise > 0 else "deducted from"
+            tg.send_message(
+                target_user["telegram_id"],
+                f"\U0001F4B0 <b>{inr(abs(paise))}</b> {verb} your wallet by admin."
+                + (f"\n<i>{esc(note)}</i>" if note else ""),
+            )
+        except Exception:  # noqa: BLE001
+            pass
+    return bool(ok)
+
+
+def _admin_adjust_balance(chat_id, text) -> None:
+    parts = text.split()
+    if len(parts) != 2:
+        tg.send_message(chat_id, "\u274C Format: <code>&lt;user_id&gt; &lt;amount&gt;</code>  (e.g. <code>8859966636 -20</code>)")
+        return
+    try:
+        tid = int(parts[0])
+        amount = float(parts[1])
+    except ValueError:
+        tg.send_message(chat_id, "\u274C Invalid numbers. Example: <code>8859966636 50</code>")
+        return
+    target = users.user_by_telegram_id(tid)
+    if not target:
+        tg.send_message(chat_id, f"\u274C No user with id <code>{tid}</code>. They must /start the bot first.")
+        return
+    ok = adjust_user_balance(target, amount, f"Admin {'credit' if amount >= 0 else 'debit'}")
+    if not ok:
+        tg.send_message(chat_id, "\u274C Not enough balance to deduct that much.")
+        return
+    fresh = users.user_by_telegram_id(tid)
+    verb = "Added" if amount >= 0 else "Deducted"
+    tg.send_message(
+        chat_id,
+        f"\u2705 {verb} <b>{inr(abs(round(amount * 100)))}</b> "
+        f"{'to' if amount >= 0 else 'from'} <code>{tid}</code>.\nNew balance: <b>{inr(fresh['balance_paise'])}</b>",
+        tg.kb([[tg.btn("\U0001F4B5 Another", "adm:pay", "success"), tg.btn("\u2B05\uFE0F Admin", "adm")]]),
+    )
 
 
 def _claimed_utr(payment_id):

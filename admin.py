@@ -184,6 +184,7 @@ def create_app() -> Flask:
             ok = apply_balance(c, uid, int(paise), "admin", "admin", note)
         if not ok:
             return jsonify({"error": "Balance can't go below \u20b90"}), 400
+        _notify_balance_change(uid, int(paise), note)
         return jsonify({"ok": True})
 
     @app.post("/api/users/<int:uid>/block")
@@ -239,6 +240,24 @@ def create_app() -> Flask:
         return jsonify({"orders": [dict(r) for r in rows]})
 
     return app
+
+
+def _notify_balance_change(user_id: int, paise: int, note: str) -> None:
+    """Tell the customer on Telegram that an admin changed their balance. Best-effort."""
+    row = db.one("SELECT telegram_id FROM users WHERE id = ?", (user_id,))
+    if not row:
+        return
+    import tg
+    from format_utils import esc, inr
+
+    verb = "added to" if paise > 0 else "deducted from"
+    msg = f"\U0001F4B0 <b>{inr(abs(paise))}</b> {verb} your wallet by admin."
+    if note and note != "Admin adjustment":
+        msg += f"\n<i>{esc(note)}</i>"
+    try:
+        tg.send_message(row["telegram_id"], msg)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _start_of_day() -> int:

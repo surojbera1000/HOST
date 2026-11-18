@@ -239,6 +239,21 @@ us = stats.user_stats(wu["id"])
 assert us["orders_done"] >= 1 and us["spent_paise"] > 0, "user spent on the completed order"
 ok("stats totals + user profile numbers")
 
+# 14. Admin add / deduct money (+ user notified)
+sent2 = []
+tg.send_message = lambda c, t, k=None: (sent2.append((c, t)) or {"message_id": 1, "chat": {"id": c}})
+au = get_or_create_user({"id": 777, "first_name": "Adm"})[0]
+assert handlers.adjust_user_balance(au, 30, "bonus") is True and bal(au["id"]) == 3000, "admin add ₹30"
+assert any(x[0] == 777 for x in sent2), "user notified of add"
+assert handlers.adjust_user_balance(au, -10, "fee") is True and bal(au["id"]) == 2000, "admin deduct ₹10"
+assert handlers.adjust_user_balance(au, -999, "x") is False and bal(au["id"]) == 2000, "cannot deduct below ₹0"
+ok("admin add / deduct money + user notified")
+
+# 15. Main menu has no Refresh button
+_mt, _mk = __import__("render").main_menu(au, False)
+assert "Refresh" not in str(_mk), "Refresh button removed from main menu"
+ok("Refresh button removed from main menu")
+
 print(f"\nAll {passed} test groups passed")
 for ext in ("", "-wal", "-shm"):
     try:

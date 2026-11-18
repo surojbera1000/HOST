@@ -22,7 +22,6 @@ def main_menu(user: dict, is_admin: bool = False) -> tuple[str, dict]:
         [btn("\U0001F4F2  Buy WhatsApp number", "buy", "primary")],
         [btn("\U0001F4B0  Add money", "dep", "success"), btn("\U0001F9FE  My numbers", "ords")],
         [btn("\U0001F464  Profile", "pf"), url_btn("\U0001F4AC  Support", _support_url())],
-        [btn("\U0001F504  Refresh", "mm")],
     ]
     if is_admin:
         rows.append([btn("\U0001F6E0\uFE0F  Admin panel", "adm", "danger")])
