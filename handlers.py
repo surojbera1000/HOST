@@ -57,7 +57,7 @@ def _on_message(msg: dict) -> None:
 
     if text.startswith("/start"):
         _sessions.pop(frm["id"], None)
-        t, k = main_menu(user)
+        t, k = main_menu(user, users.is_admin(frm["id"]))
         tg.send_message(chat_id, t, k)
         return
     if text == "/balance":
@@ -67,12 +67,16 @@ def _on_message(msg: dict) -> None:
         _send_admin_stats(chat_id)
         return
 
-    if _take_session(frm["id"]) == "amount":
+    sess = _take_session(frm["id"])
+    if sess == "amount":
         digits = "".join(c for c in text if c.isdigit())
         _start_deposit(user, chat_id, int(digits) if digits else 0)
         return
+    if sess and sess.startswith("utr:"):
+        _submit_transaction_id(user, chat_id, int(sess.split(":")[1]), text)
+        return
 
-    t, k = main_menu(user)
+    t, k = main_menu(user, users.is_admin(frm["id"]))
     tg.send_message(chat_id, t, k)
 
 
@@ -107,8 +111,18 @@ def _on_callback(cq: dict) -> None:
             ack()
         elif cmd in ("mm", "bal"):
             fresh = users.user_by_telegram_id(frm["id"])
-            t, k = main_menu(fresh)
+            t, k = main_menu(fresh, users.is_admin(frm["id"]))
             edit(t, k)
+            ack()
+        elif cmd == "adm":
+            if not users.is_admin(frm["id"]):
+                ack("Admin only.", True)
+            else:
+                _admin(edit, ack, args)
+        elif cmd == "dpid":
+            _set_session(frm["id"], f"utr:{args[0]}")
+            tg.send_message(chat_id, "\U0001F9FE Send me the <b>Transaction ID</b> from your payment app "
+                            "(for example <code>FMPIB6903479891</code> or a 12-digit UTR).")
             ack()
         elif cmd == "buy":
             _show_wa_confirm(edit, user)
@@ -284,6 +298,23 @@ def _show_deposit_menu(edit) -> None:
     edit(f"\U0001F4B0 <b>Add money</b>\n\nChoose an amount to pay by UPI (min \u20b9{int(db.get_setting_number('min_topup_inr'))}):", tg.kb(rows))
 
 
+def _submit_transaction_id(user, chat_id, payment_id, raw) -> None:
+    try:
+        paid = pay.claim_transaction_id(user["id"], payment_id, raw)
+    except pay.PaymentError as e:
+        tg.send_message(chat_id, f"\u274C {esc(str(e))}", tg.kb([[tg.btn("\U0001F3E0 Menu", "mm")]]))
+        return
+    if paid:
+        tg.send_message(chat_id, f"\u2705 <b>{inr(paid['amount_paise'])} added to your wallet.</b>", tg.kb([[tg.btn("\U0001F3E0 Menu", "mm")]]))
+    else:
+        tg.send_message(
+            chat_id,
+            "\u2705 Got it. We'll verify your payment when the bank email arrives — usually within a minute. "
+            "Your wallet updates automatically.",
+            tg.kb([[tg.btn("\U0001F9FE My numbers", "ords"), tg.btn("\U0001F3E0 Menu", "mm")]]),
+        )
+
+
 def _start_deposit(user, chat_id, rupees) -> None:
     try:
         payment = pay.create_payment(user["id"], rupees)
@@ -295,7 +326,98 @@ def _start_deposit(user, chat_id, rupees) -> None:
     pay.set_payment_message(payment["id"], chat_id, sent["message_id"])
 
 
-# ---------- admin ----------
+# ---------- in-bot admin panel ----------
+
+def _admin(edit, ack, args) -> None:
+    sub = args[0] if args else "menu"
+    if sub == "menu":
+        edit("\U0001F6E0\uFE0F <b>Admin panel</b>\n\nChoose an action:", tg.kb([
+            [tg.btn("\U0001F4CA Stats", "adm:stats", "primary")],
+            [tg.btn("\U0001F4B0 Pending deposits", "adm:dep", "success")],
+            [tg.btn("\U0001F9FE Recent orders", "adm:ord")],
+            [tg.btn("\U0001F3E0 Menu", "mm")],
+        ]))
+        ack()
+    elif sub == "stats":
+        edit(_stats_text(), tg.kb([[tg.btn("\u2B05\uFE0F Back", "adm")]]))
+        ack()
+    elif sub == "dep":
+        _admin_deposits(edit)
+        ack()
+    elif sub == "ord":
+        _admin_orders(edit)
+        ack()
+    elif sub == "ok":
+        paid = pay.credit_payment(int(args[1]), _claimed_utr(int(args[1])), None)
+        ack("Credited" if paid else "Already credited / cannot credit", True)
+        _admin_deposits(edit)
+    elif sub == "no":
+        pay.cancel_payment(int(args[1]))
+        ack("Rejected")
+        _admin_deposits(edit)
+    else:
+        ack()
+
+
+def _claimed_utr(payment_id):
+    p = pay.get_payment(payment_id)
+    return p["claimed_utr"] if p else None
+
+
+def _stats_text() -> str:
+    start = int(time.mktime(time.localtime()[:3] + (0, 0, 0, 0, 0, -1)) * 1000)
+    users_n = db.one("SELECT COUNT(*) n FROM users")["n"]
+    sales = db.one("SELECT COUNT(*) n, COALESCE(SUM(price_paise),0) s, COALESCE(SUM(cost_usd),0) c FROM orders WHERE status IN ('received','completed') AND created_at >= ?", (start,))
+    topups = db.one("SELECT COALESCE(SUM(amount_paise),0) s FROM payments WHERE status = 'paid' AND paid_at >= ?", (start,))
+    rate = db.get_setting_number("usd_inr_rate")
+    profit = sales["s"] - round(sales["c"] * rate * 100)
+    try:
+        bal = f"${phoenix.get_balance_usd():.2f}"
+    except Exception:  # noqa: BLE001
+        bal = "unavailable"
+    return (
+        "\U0001F4CA <b>Today</b>\n"
+        f"Users: {users_n}\n"
+        f"Numbers sold: {sales['n']} ({inr(sales['s'])})\n"
+        f"Profit: {inr(profit)}\n"
+        f"Deposits: {inr(topups['s'])}\n"
+        f"Phoenix balance: {bal}"
+    )
+
+
+def _admin_deposits(edit) -> None:
+    rows = db.q(
+        "SELECT p.*, u.telegram_id, u.username FROM payments p JOIN users u ON u.id = p.user_id "
+        "WHERE p.status IN ('pending', 'expired') ORDER BY p.id DESC LIMIT 12"
+    )
+    if not rows:
+        edit("\U0001F4B0 <b>Pending deposits</b>\n\nNone right now.", tg.kb([[tg.btn("\U0001F504 Refresh", "adm:dep"), tg.btn("\u2B05\uFE0F Back", "adm")]]))
+        return
+    lines, btns = [], []
+    for r in rows:
+        who = ("@" + r["username"]) if r["username"] else str(r["telegram_id"])
+        claim = f" \u00b7 ID {esc(r['claimed_utr'])}" if r["claimed_utr"] else ""
+        lines.append(f"#{r['id']} {inr(r['amount_paise'])} {esc(who)}{claim} [{r['status']}]")
+        btns.append([tg.btn(f"\u2705 Approve #{r['id']}", f"adm:ok:{r['id']}", "success"), tg.btn(f"\u274C #{r['id']}", f"adm:no:{r['id']}", "danger")])
+    btns.append([tg.btn("\U0001F504 Refresh", "adm:dep"), tg.btn("\u2B05\uFE0F Back", "adm")])
+    edit("\U0001F4B0 <b>Pending deposits</b>\n\n" + "\n".join(lines) + "\n\nApprove only after you confirm the money in your account.", tg.kb(btns))
+
+
+def _admin_orders(edit) -> None:
+    rows = db.q(
+        "SELECT o.id, o.phone, o.price_paise, o.status, o.created_at, u.username, u.telegram_id "
+        "FROM orders o JOIN users u ON u.id = o.user_id WHERE o.status != 'buying' ORDER BY o.id DESC LIMIT 10"
+    )
+    if not rows:
+        edit("\U0001F9FE <b>Recent orders</b>\n\nNone yet.", tg.kb([[tg.btn("\u2B05\uFE0F Back", "adm")]]))
+        return
+    lines = []
+    for r in rows:
+        who = ("@" + r["username"]) if r["username"] else str(r["telegram_id"])
+        num = f"+{r['phone']}" if r["phone"] else "\u2014"
+        lines.append(f"#{r['id']} {num} {inr(r['price_paise'])} [{r['status']}] {esc(who)}")
+    edit("\U0001F9FE <b>Recent orders</b>\n\n" + "\n".join(lines), tg.kb([[tg.btn("\U0001F504 Refresh", "adm:ord"), tg.btn("\u2B05\uFE0F Back", "adm")]]))
+
 
 def _send_admin_stats(chat_id) -> None:
     start = int(time.mktime(time.localtime()[:3] + (0, 0, 0, 0, 0, -1)) * 1000)

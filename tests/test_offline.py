@@ -20,6 +20,7 @@ import db  # noqa: E402
 import tg  # noqa: E402
 from pricing import make_pricer  # noqa: E402
 from gmail_poll import parse_email, process_alert  # noqa: E402
+import payments as pay  # noqa: E402
 from payments import create_payment  # noqa: E402
 from users import get_or_create_user  # noqa: E402
 from wallet import apply_balance  # noqa: E402
@@ -179,6 +180,53 @@ omod.cancel_order(omod.get_order(o3["id"]))
 assert omod.get_order(o3["id"])["status"] == "cancelled"
 assert bal(wu["id"]) == 30000 - exp_price, "refunded on cancel"
 ok("WhatsApp cancel + refund")
+
+# 10. Transaction ID claim — one-time use
+from payments import claim_transaction_id, create_payment as _cp  # noqa: E402
+
+cu = get_or_create_user({"id": 555, "first_name": "Claim"})[0]
+p1 = _cp(cu["id"], 100)
+db.execute(
+    "INSERT INTO emails (message_id, from_addr, received_at, amount_paise, utr, dkim_ok, status, created_at) "
+    "VALUES (?, 'no-reply@famapp.in', ?, ?, 'FMPIBCLAIM1', 1, 'unmatched', ?)",
+    (f"em-{db.now()}", db.now(), p1["amount_paise"], db.now()),
+)
+paid = claim_transaction_id(cu["id"], p1["id"], "FMPIBCLAIM1")
+assert paid and bal(cu["id"]) == p1["amount_paise"], "claim with matching trusted email credits"
+try:
+    p2 = _cp(cu["id"], 100)
+    claim_transaction_id(cu["id"], p2["id"], "FMPIBCLAIM1")
+    raise AssertionError("should reject reused Transaction ID")
+except pay.PaymentError as e:
+    assert "already used" in str(e).lower()
+try:
+    claim_transaction_id(cu["id"], p2["id"], "nope")
+    raise AssertionError("should reject bad format")
+except pay.PaymentError:
+    pass
+ok("Transaction ID claim credits once, rejects reuse + bad format")
+
+# 11. Claim then email arrives later -> credited via claimed match
+p3 = _cp(cu["id"], 100)
+before3 = bal(cu["id"])
+assert claim_transaction_id(cu["id"], p3["id"], "FMPIBLATER9") is None, "no email yet -> pending claim"
+r3 = f"{p3['amount_paise']/100:.2f}".rstrip("0")
+process_alert(parse_email(famapp("mlate", r3, "FMPIBLATER9")))
+assert bal(cu["id"]) == before3 + p3["amount_paise"], "late email credits the claimed deposit"
+ok("claimed Transaction ID credited when the email lands")
+
+# 12. Premium emoji converter (bold + custom emoji with UTF-16 offsets)
+import premium  # noqa: E402
+
+premium._map = {"\U0001F525": "555"}  # 🔥 -> fake custom_emoji_id
+txt, ents = premium.convert("\U0001F525 <b>OTP</b> &amp; go")
+assert txt == "\U0001F525 OTP & go", f"plain text: {txt!r}"
+ce = [e for e in ents if e["type"] == "custom_emoji"][0]
+assert ce["offset"] == 0 and ce["length"] == 2 and ce["custom_emoji_id"] == "555"
+bold = [e for e in ents if e["type"] == "bold"][0]
+assert bold["offset"] == 3 and bold["length"] == 3, f"bold: {bold}"
+premium._map = {}
+ok("premium emoji converter (bold + custom emoji offsets)")
 
 print(f"\nAll {passed} test groups passed")
 for ext in ("", "-wal", "-shm"):

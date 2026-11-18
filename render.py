@@ -12,17 +12,20 @@ def _support_url() -> str:
     return f"https://t.me/{config.SUPPORT_USERNAME}"
 
 
-def main_menu(user: dict) -> tuple[str, dict]:
+def main_menu(user: dict, is_admin: bool = False) -> tuple[str, dict]:
     text = (
         "\U0001F44B <b>Welcome to Miku OTP</b>\n"
-        "Buy a phone number, get the OTP here. No OTP? Your money comes back.\n\n"
+        "Buy a WhatsApp number, get the OTP here. No OTP? Your money comes back.\n\n"
         f"\U0001F4B0 <b>Balance:</b> {inr(user['balance_paise'])}"
     )
-    return text, kb([
+    rows = [
         [btn("\U0001F4F2  Buy WhatsApp number", "buy", "primary")],
         [btn("\U0001F4B0  Add money", "dep", "success"), btn("\U0001F9FE  My numbers", "ords")],
         [btn("\U0001F504  Refresh", "mm"), url_btn("\U0001F4AC  Support", _support_url())],
-    ])
+    ]
+    if is_admin:
+        rows.append([btn("\U0001F6E0\uFE0F  Admin panel", "adm", "danger")])
+    return text, kb(rows)
 
 
 def order_view(o: dict, now_ms: int) -> tuple[str, dict]:
@@ -99,7 +102,12 @@ def deposit_keyboard(p: dict) -> dict:
     if p["status"] == "pending":
         return kb([
             [copy_btn(f"\U0001F4CB Copy \u20b9{p['amount_paise'] / 100:.2f}", f"{p['amount_paise'] / 100:.2f}")],
-            [btn("\U0001F6AB Cancel", f"dcl:{p['id']}", "danger")],
-            [url_btn("\U0001F4AC Support", _support_url())],
+            [btn("\U0001F9FE I paid \u2014 enter ID", f"dpid:{p['id']}", "primary")],
+            [btn("\U0001F6AB Cancel", f"dcl:{p['id']}", "danger"), url_btn("\U0001F4AC Support", _support_url())],
+        ])
+    if p["status"] == "expired":
+        return kb([
+            [btn("\U0001F9FE I paid \u2014 enter ID", f"dpid:{p['id']}", "primary")],
+            [btn("\U0001F4B0 Add again", "dep", "success"), btn("\U0001F3E0 Menu", "mm")],
         ])
     return kb([[btn("\U0001F4B0 Add again", "dep", "success"), btn("\U0001F3E0 Menu", "mm")]])

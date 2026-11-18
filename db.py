@@ -128,7 +128,15 @@ def init() -> None:
     global _conn
     if _conn is None:
         _conn = _connect()
+        _migrate(_conn)
         _seed()
+
+
+def _migrate(d: sqlite3.Connection) -> None:
+    cols = [r["name"] for r in d.execute("PRAGMA table_info(payments)").fetchall()]
+    if "claimed_utr" not in cols:
+        d.execute("ALTER TABLE payments ADD COLUMN claimed_utr TEXT")
+        d.commit()
 
 
 def conn() -> sqlite3.Connection:

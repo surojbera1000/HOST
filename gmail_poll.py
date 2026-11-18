@@ -136,17 +136,28 @@ def process_alert(a: dict) -> Optional[dict]:
     elif a["utr"] and db.one("SELECT id FROM payments WHERE utr = ?", (a["utr"],)):
         status, reason = "ignored", "Transaction ID already used"
     else:
-        rows = db.q(
-            "SELECT * FROM payments WHERE amount_paise = ? AND status IN ('pending', 'expired') "
-            "AND created_at <= ? AND expires_at >= ?",
-            (a["amount_paise"], a["date"] + 60_000, a["date"] - EMAIL_GRACE_MS),
-        )
-        if len(rows) == 1:
-            payment = dict(rows[0])
-        elif len(rows) > 1:
-            reason = "More than one open deposit with this amount"
+        # 1) A customer who submitted this exact Transaction ID for a deposit of this amount.
+        claimed = None
+        if a["utr"]:
+            claimed = db.one(
+                "SELECT * FROM payments WHERE claimed_utr = ? AND amount_paise = ? AND status IN ('pending', 'expired')",
+                (a["utr"], a["amount_paise"]),
+            )
+        if claimed:
+            payment = dict(claimed)
         else:
-            reason = "No open deposit with this exact amount"
+            # 2) Otherwise match by the unique amount within the window.
+            rows = db.q(
+                "SELECT * FROM payments WHERE amount_paise = ? AND status IN ('pending', 'expired') "
+                "AND created_at <= ? AND expires_at >= ?",
+                (a["amount_paise"], a["date"] + 60_000, a["date"] - EMAIL_GRACE_MS),
+            )
+            if len(rows) == 1:
+                payment = dict(rows[0])
+            elif len(rows) > 1:
+                reason = "More than one open deposit with this amount"
+            else:
+                reason = "No open deposit with this exact amount"
 
     cur = db.execute(
         "INSERT INTO emails (message_id, from_addr, subject, received_at, amount_paise, utr, dkim_ok, status, reason, "

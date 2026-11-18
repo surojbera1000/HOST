@@ -6,6 +6,7 @@ import time
 
 import config
 import db
+import premium
 import tg
 from admin import start_admin_panel
 from handlers import handle_update
@@ -45,6 +46,7 @@ def _poll_loop() -> None:
 def main() -> None:
     config.assert_config()
     db.init()
+    premium.load()  # best-effort; premium custom emoji for Premium users
     start_admin_panel()
     start_workers()
     _set_commands()

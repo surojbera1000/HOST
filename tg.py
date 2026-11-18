@@ -4,6 +4,7 @@ from typing import Any, Optional
 import requests
 
 import config
+import premium
 
 _API = None
 
@@ -54,31 +55,29 @@ def kb(rows: list[list[dict]]) -> dict:
 # ---------- messages ----------
 
 def send_message(chat_id: int, text: str, keyboard: Optional[dict] = None) -> dict:
-    return call(
-        "sendMessage",
-        {
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "link_preview_options": {"is_disabled": True},
-            "reply_markup": keyboard,
-        },
-    )
+    base = {"chat_id": chat_id, "link_preview_options": {"is_disabled": True}, "reply_markup": keyboard}
+    conv = premium.convert(text) if premium.enabled() else None
+    if conv:
+        try:
+            return call("sendMessage", {**base, "text": conv[0], "entities": conv[1]})
+        except TgError:
+            pass  # fall back to HTML
+    return call("sendMessage", {**base, "text": text, "parse_mode": "HTML"})
 
 
 def edit_message(chat_id: int, message_id: int, text: str, keyboard: Optional[dict] = None) -> None:
+    base = {"chat_id": chat_id, "message_id": message_id, "link_preview_options": {"is_disabled": True}, "reply_markup": keyboard}
+    conv = premium.convert(text) if premium.enabled() else None
+    if conv:
+        try:
+            call("editMessageText", {**base, "text": conv[0], "entities": conv[1]})
+            return
+        except TgError as e:
+            if "not modified" in e.description.lower():
+                return
+            # fall through to HTML
     try:
-        call(
-            "editMessageText",
-            {
-                "chat_id": chat_id,
-                "message_id": message_id,
-                "text": text,
-                "parse_mode": "HTML",
-                "link_preview_options": {"is_disabled": True},
-                "reply_markup": keyboard,
-            },
-        )
+        call("editMessageText", {**base, "text": text, "parse_mode": "HTML"})
     except TgError as e:
         if "not modified" in e.description.lower():
             return
